@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>음성 운동 기록 — 사용자 화면 시안</title>
+  <style>
+    :root {
+      --blue: #007aff;
+      --blue-strong: #0064d5;
+      --blue-soft: #eaf3ff;
+      --page: #eef2f8;
+      --app-bg: #f2f2f7;
+      --surface: #ffffff;
+      --ink: #142033;
+      --muted: #647084;
+      --line: #dbe2ed;
+      --success: #208250;
+      --success-soft: #e7f6ed;
+      --error: #cd4039;
+      --error-soft: #fff0ee;
+      --warning: #a76400;
+      --warning-soft: #fff4df;
+      --shadow: 0 24px 62px rgba(28, 49, 86, .13);
+      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      color: var(--ink);
+      background: var(--page);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --blue: #66adff;
+        --blue-strong: #308df3;
+        --blue-soft: #183454;
+        --page: #0d1420;
+        --app-bg: #101925;
+        --surface: #1b2736;
+        --ink: #f2f6fb;
+        --muted: #aebacc;
+        --line: #334052;
+        --success: #77db9b;
+        --success-soft: #183a2c;
+        --error: #ff8b82;
+        --error-soft: #493033;
+        --warning: #ffd07b;
+        --warning-soft: #433821;
+        --shadow: 0 24px 62px rgba(0, 0, 0, .32);
+      }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, input:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
+    h1, h2, h3, p { margin: 0; }
+    .page { max-width: 1260px; margin: 0 auto; padding: 28px 28px 48px; }
+    .masthead { display: flex; justify-content: space-between; align-items: start; gap: 28px; margin-bottom: 25px; }
+    .masthead-copy { display: grid; gap: 9px; }
+    .eyebrow { color: var(--blue-strong); font-weight: 800; font-size: 12px; letter-spacing: .1em; }
+    .masthead h1 { font-size: clamp(25px, 3vw, 36px); line-height: 1.18; letter-spacing: -.045em; text-wrap: balance; }
+    .masthead p { max-width: 660px; color: var(--muted); line-height: 1.55; font-size: 14px; }
+    .prototype-tag { flex: none; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 8px 12px; color: var(--muted); font-size: 12px; font-weight: 700; }
+    .layout { display: grid; grid-template-columns: minmax(188px, 230px) minmax(320px, 390px) minmax(220px, 270px); justify-content: center; align-items: start; gap: 28px; }
+    .side { display: grid; gap: 20px; padding-top: 22px; }
+    .side-heading { font-size: 11px; font-weight: 800; letter-spacing: .1em; color: var(--muted); }
+    .nav-list, .control-list { display: grid; gap: 7px; }
+    .nav-button, .control-button { width: 100%; display: flex; align-items: center; gap: 11px; text-align: left; background: transparent; color: var(--ink); border: 1px solid transparent; border-radius: 13px; padding: 10px 11px; min-height: 44px; }
+    .nav-button:hover, .control-button:hover { background: var(--surface); border-color: var(--line); }
+    .nav-button.active { color: var(--blue-strong); background: var(--blue-soft); font-weight: 800; }
+    .nav-number { width: 24px; flex: none; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; }
+    .nav-button.active .nav-number { color: var(--blue-strong); }
+    .note-card { padding: 15px; background: var(--surface); border: 1px solid var(--line); border-radius: 15px; display: grid; gap: 8px; line-height: 1.5; font-size: 13px; color: var(--muted); }
+    .note-card strong { color: var(--ink); }
+    .control-button { background: var(--surface); border-color: var(--line); font-size: 13px; font-weight: 650; }
+    .control-button .chip { width: 25px; height: 25px; display: grid; place-items: center; flex: none; border-radius: 7px; background: var(--blue-soft); color: var(--blue-strong); font-size: 12px; font-weight: 800; }
+    .caption { line-height: 1.55; color: var(--muted); font-size: 12px; }
+    .phone { width: min(390px, 100%); height: 806px; background: var(--app-bg); border: 7px solid var(--ink); border-radius: 41px; box-shadow: var(--shadow); overflow: hidden; display: flex; flex-direction: column; position: relative; margin-inline: auto; }
+    .status-bar { height: 38px; flex: none; display: flex; align-items: end; justify-content: space-between; padding: 0 25px 4px; font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .status-icons { letter-spacing: .08em; font-size: 11px; }
+    .phone-viewport { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+    .phone-screen { display: grid; align-content: start; gap: 18px; min-height: 100%; padding: 19px 20px 28px; }
+    .phone-screen h2 { font-size: 29px; line-height: 1.15; letter-spacing: -.04em; text-wrap: balance; }
+    .screen-intro { display: grid; gap: 6px; }
+    .screen-intro p { color: var(--muted); line-height: 1.5; font-size: 14px; }
+    .small-caps { font-size: 11px; font-weight: 800; letter-spacing: .1em; color: var(--muted); }
+    .screen-topline { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .text-button { color: var(--blue-strong); background: transparent; border: 0; padding: 10px 2px; min-height: 44px; font-size: 13px; font-weight: 800; }
+    .card { background: var(--surface); border: 1px solid var(--line); border-radius: 17px; padding: 17px; display: grid; gap: 11px; }
+    .card.compact { gap: 5px; }
+    .card-title { font-size: 15px; font-weight: 800; }
+    .muted { color: var(--muted); }
+    .fine { font-size: 12px; line-height: 1.5; }
+    .label { font-size: 13px; font-weight: 750; }
+    .field { width: 100%; min-height: 49px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 11px; padding: 11px 13px; font-size: 16px; }
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .field-block { display: grid; gap: 7px; }
+    .helper { font-size: 12px; line-height: 1.45; color: var(--muted); }
+    .primary, .secondary { width: 100%; min-height: 54px; padding: 12px 16px; border-radius: 12px; border: 1px solid transparent; font-weight: 800; font-size: 16px; }
+    .primary { background: var(--blue-strong); color: #fff; }
+    .primary:hover { filter: brightness(1.08); }
+    .secondary { background: var(--surface); color: var(--ink); border-color: var(--line); }
+    .small-button { border: 1px solid var(--line); border-radius: 10px; color: var(--ink); background: var(--surface); min-height: 44px; padding: 8px 11px; font-weight: 750; }
+    .suggestions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .suggestion { border: 1px solid var(--line); border-radius: 999px; color: var(--ink); background: var(--surface); padding: 9px 12px; min-height: 40px; font-size: 13px; font-weight: 700; }
+    .suggestion.selected { border-color: var(--blue-strong); background: var(--blue-soft); color: var(--blue-strong); }
+    .section-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .section-heading h3 { font-size: 16px; letter-spacing: -.02em; }
+    .hero-data { display: grid; gap: 14px; padding: 19px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 19px; }
+    .hero-label { font-size: 13px; font-weight: 700; color: var(--muted); }
+    .hero-value { font-size: 38px; font-weight: 850; line-height: 1; letter-spacing: -.045em; font-variant-numeric: tabular-nums; }
+    .hero-value span { font-size: 20px; font-weight: 750; color: var(--muted); letter-spacing: 0; }
+    .hero-meta { display: flex; justify-content: space-between; align-items: center; gap: 12px; border-top: 1px solid var(--line); padding-top: 11px; font-size: 12px; color: var(--muted); }
+    .value { font-variant-numeric: tabular-nums; font-weight: 750; }
+    .set-list { display: grid; gap: 8px; }
+    .set-row { min-height: 58px; display: flex; align-items: center; gap: 10px; padding: 7px 9px 7px 13px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+    .set-index { min-width: 34px; font-size: 12px; color: var(--muted); font-weight: 800; }
+    .set-detail { flex: 1; font-size: 16px; font-weight: 850; font-variant-numeric: tabular-nums; }
+    .set-row .text-button { padding: 8px 5px; }
+    .empty { display: grid; gap: 7px; padding: 23px; border: 1px dashed var(--line); border-radius: 14px; color: var(--muted); line-height: 1.55; font-size: 13px; }
+    .empty strong { color: var(--ink); font-size: 15px; }
+    .badge { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; background: var(--success-soft); color: var(--success); font-weight: 800; font-size: 12px; padding: 7px 10px; width: fit-content; }
+    .badge::before { content: ""; width: 7px; height: 7px; background: currentColor; border-radius: 50%; }
+    .notice { border-radius: 13px; padding: 13px; display: grid; gap: 8px; font-size: 13px; line-height: 1.45; border: 1px solid var(--line); background: var(--surface); }
+    .notice strong { font-size: 14px; }
+    .notice.success { background: var(--success-soft); border-color: transparent; color: var(--success); }
+    .notice.error { background: var(--error-soft); border-color: transparent; color: var(--error); }
+    .notice.warning { background: var(--warning-soft); border-color: transparent; color: var(--warning); }
+    .notice.info { background: var(--blue-soft); border-color: transparent; color: var(--blue-strong); }
+    .notice-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .notice-actions button { min-height: 44px; padding: 8px 13px; border: 1px solid currentColor; border-radius: 9px; background: transparent; color: inherit; font-weight: 800; }
+    .phone-footer { flex: none; background: var(--surface); border-top: 1px solid var(--line); padding: 12px 20px 17px; display: grid; gap: 10px; }
+    .footer-row { display: flex; gap: 9px; }
+    .footer-row > button { flex: 1; }
+    .mic-button { width: 100%; min-height: 76px; display: flex; justify-content: center; align-items: center; gap: 13px; border: 0; border-radius: 16px; background: var(--blue-strong); color: #fff; font-size: 17px; font-weight: 850; }
+    .mic-button.listening { background: var(--error); }
+    .mic-button:disabled { background: var(--muted); cursor: not-allowed; opacity: .78; }
+    .mic-button svg { width: 22px; height: 22px; }
+    .tabbar { display: flex; align-items: center; }
+    .tabbar button { border: 0; background: transparent; color: var(--muted); min-height: 50px; flex: 1; font-size: 13px; font-weight: 800; }
+    .tabbar button.active { color: var(--blue-strong); }
+    .progress { height: 8px; background: var(--line); border-radius: 99px; overflow: hidden; }
+    .progress > span { display: block; height: 100%; width: 100%; background: var(--blue-strong); }
+    .history-item { width: 100%; text-align: left; color: var(--ink); }
+    .history-item .top { display: flex; justify-content: space-between; gap: 8px; font-size: 15px; font-weight: 800; }
+    .history-item .bottom { color: var(--muted); font-size: 13px; }
+    .phone-overlay { position: absolute; inset: 0; display: flex; align-items: end; background: rgba(10, 19, 31, .54); z-index: 5; }
+    .sheet { width: 100%; background: var(--surface); color: var(--ink); border-radius: 24px 24px 34px 34px; padding: 20px 20px 30px; display: grid; gap: 17px; box-shadow: 0 -15px 35px rgba(0,0,0,.15); }
+    .sheet-handle { width: 38px; height: 5px; border-radius: 99px; background: var(--line); justify-self: center; }
+    .sheet h3 { font-size: 21px; }
+    .sheet .footer-row { margin-top: 3px; }
+    .phone-home-indicator { width: 110px; height: 5px; background: var(--ink); border-radius: 99px; position: absolute; left: 50%; bottom: 5px; transform: translateX(-50%); opacity: .32; }
+    @media (max-width: 1000px) {
+      .layout { grid-template-columns: 180px minmax(320px, 390px); }
+      .side.inspector { grid-column: 1 / -1; grid-row: 2; max-width: 650px; justify-self: center; width: 100%; grid-template-columns: 1fr 1fr; }
+      .inspector .caption { grid-column: 1 / -1; }
+    }
+    @media (max-width: 660px) {
+      .page { padding: 16px 12px 30px; }
+      .masthead { display: grid; gap: 14px; padding: 0 5px; }
+      .layout { display: flex; flex-direction: column; gap: 14px; align-items: stretch; }
+      .side { padding-top: 0; }
+      .side.navigator { gap: 7px; }
+      .nav-list { display: flex; overflow-x: auto; padding-bottom: 5px; }
+      .nav-button { white-space: nowrap; width: auto; }
+      .note-card { display: none; }
+      .phone { height: min(806px, 86vh); min-height: 610px; }
+      .side.inspector { display: grid; grid-template-columns: 1fr; max-width: 390px; }
+      .control-list { grid-template-columns: 1fr 1fr; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="masthead">
+      <div class="masthead-copy">
+        <div class="eyebrow">VOICE FITNESS · MVP SCREEN DESIGN</div>
+        <h1>세트가 끝나면, 말하고 바로 확인합니다.</h1>
+        <p>iPhone Safari에서 홈 화면에 추가해 쓰는 PWA 시안입니다. 음성 입력에는 인터넷이 필요하며, 표시된 운동 기록은 예시 데이터입니다.</p>
+      </div>
+      <span class="prototype-tag">화면 목업 · 실제 음성 입력 없음</span>
+    </header>
+    <div class="layout">
+      <aside class="side navigator" aria-label="화면 목록">
+        <div class="side-heading">사용 흐름</div>
+        <nav class="nav-list" id="screen-nav"></nav>
+        <div class="note-card"><strong>화면의 기준</strong><span>운동 중에는 중량과 오늘 기록을 먼저 보여주고, 마이크 버튼은 손이 닿기 쉬운 아래에 둡니다.</span></div>
+      </aside>
+      <div class="phone" aria-label="iPhone 화면 미리보기">
+        <div class="status-bar"><span>9:41</span><span class="status-icons" aria-label="신호 및 배터리 상태">●●● ▰</span></div>
+        <div class="phone-viewport" id="phone-viewport"></div>
+        <div class="phone-footer" id="phone-footer"></div>
+        <div id="phone-overlay"></div>
+        <div class="phone-home-indicator" aria-hidden="true"></div>
+      </div>
+      <aside class="side inspector" aria-label="상태 미리보기">
+        <div class="side-heading">음성 상태 미리보기</div>
+        <div class="control-list">
+          <button class="control-button" type="button" data-action="simulate" data-kind="eight"><span class="chip">8</span>“8개” 저장</button>
+          <button class="control-button" type="button" data-action="simulate" data-kind="weight"><span class="chip">kg</span>“75kg 9회”</button>
+          <button class="control-button" type="button" data-action="simulate" data-kind="ambiguous"><span class="chip">?</span>모호한 인식</button>
+          <button class="control-button" type="button" data-action="simulate" data-kind="fail"><span class="chip">×</span>인식 실패</button>
+          <button class="control-button" type="button" data-action="simulate" data-kind="offline"><span class="chip">!</span>연결 없음</button>
+          <button class="control-button" type="button" data-action="reset"><span class="chip">↺</span>예시 초기화</button>
+        </div>
+        <p class="caption">음성 결과 버튼은 화면 상태를 살펴보기 위한 도구입니다. 마이크·온라인 음성 인식·저장소는 연결되어 있지 않습니다.</p>
+      </aside>
+    </div>
+  </main>
+  <script>
+    const navItems = [
+      { id: 'prepare', label: '사용 시작' },
+      { id: 'home', label: '홈' },
+      { id: 'setup', label: '운동 설정' },
+      { id: 'active', label: '운동 진행' },
+      { id: 'history', label: '기록 조회' },
+    ];
+    const initialSets = [
+      { id: 1, weight: 70, reps: 9 },
+      { id: 2, weight: 70, reps: 8 },
+    ];
+    const state = {
+      view: 'active', exercise: '벤치프레스', draftExercise: '벤치프레스', weight: 70, target: 10,
+      sets: initialSets.map(set => ({ ...set })), pastExercises: [], voice: 'ready',
+      pendingReps: null, online: true, editingId: null,
+      historyDetail: false, finished: false, nextId: 3,
+    };
+    const escapeText = (value) => String(value).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+    const micIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="13" rx="3"></rect><path d="M5 10a7 7 0 0 0 14 0M12 17v5m-4 0h8"></path></svg>';
+    const recordedExercises = () => [...state.pastExercises, { name: state.exercise, sets: state.sets }].filter(item => item.sets.length > 0);
+    const findSet = id => recordedExercises().flatMap(item => item.sets).find(set => set.id === id);
+    function nav() {
+      document.getElementById('screen-nav').innerHTML = navItems.map((item, index) =>
+        `<button class="nav-button ${state.view === item.id ? 'active' : ''}" type="button" data-action="view" data-view="${item.id}" ${state.view === item.id ? 'aria-current="page"' : ''}><span class="nav-number">0${index + 1}</span>${item.label}</button>`
+      ).join('');
+    }
+    function renderPrepare() {
+      return `<section class="phone-screen">
+        <div class="screen-intro"><div class="small-caps">처음 사용할 때</div><h2>홈 화면에서<br>바로 기록하세요.</h2><p>Safari의 공유 버튼에서 “홈 화면에 추가”를 선택하면 앱처럼 열 수 있어요. 추가하지 않아도 사용할 수 있습니다.</p></div>
+        <div class="card"><span class="card-title">음성 기록은 온라인에서</span><p class="fine muted">세트가 끝나면 마이크 버튼을 누르고 말하세요. 짧은 음성은 인식을 위해 서버로 전송됩니다. 연결이 없으면 직접 입력할 수 있어요.</p></div>
+        <div class="card"><span class="card-title">마이크 사용</span><p class="fine muted">처음 음성 입력을 시작할 때 Safari가 마이크 권한을 요청합니다.</p><button class="secondary" type="button" data-action="test-mic">음성 입력 화면 보기</button></div>
+        <p class="helper">이 화면은 시안입니다. 버튼을 눌러도 실제 마이크 권한을 요청하거나 음성을 전송하지 않습니다.</p>
+      </section>`;
+    }
+    function renderHome() {
+      const entries = recordedExercises();
+      const hasRecord = entries.length > 0;
+      const totalSets = entries.reduce((total, entry) => total + entry.sets.length, 0);
+      return `<section class="phone-screen">
+        <div class="screen-intro"><div class="small-caps">오늘의 운동</div><h2>${state.finished ? '오늘 운동을 마쳤어요.' : '오늘 운동을 시작해요.'}</h2><p>세트가 끝날 때마다 버튼을 누르고 횟수만 말하세요.</p></div>
+        ${state.finished ? `<div class="notice success"><strong>${entries.length}종목 · ${totalSets}세트 기록</strong><span>운동 기록에서 언제든 다시 확인할 수 있어요.</span></div><button class="primary" type="button" data-action="new-workout">새 운동 시작</button>` : `<div class="card"><span class="card-title">${hasRecord ? '진행 중인 운동' : '첫 운동 기록'}</span><p class="fine muted">${hasRecord ? `${escapeText(state.exercise)} · 오늘 ${totalSets}세트 저장됨` : '아직 기록이 없어요. 종목과 중량을 정해 시작해 보세요.'}</p><button class="primary" type="button" data-action="view" data-view="${hasRecord ? 'active' : 'setup'}">${hasRecord ? '운동 이어하기' : '운동 시작'}</button></div>`}
+        <div class="section-heading"><h3>최근 기록</h3><button class="text-button" type="button" data-action="view" data-view="history">모두 보기</button></div>
+        ${hasRecord ? `<button class="card history-item" type="button" data-action="history-detail"><span class="top"><span>9월 25일 운동</span><span>›</span></span><span class="bottom">${entries.map(item => escapeText(item.name)).join(' · ')} · ${totalSets}세트</span></button>` : '<div class="empty"><strong>저장한 운동이 없습니다</strong><span>첫 세트를 기록하면 이곳에 나타납니다.</span></div>'}
+      </section>`;
+    }
+    function renderSetup() {
+      return `<section class="phone-screen">
+        <div class="screen-intro"><div class="small-caps">운동 설정</div><h2>어떤 운동을<br>하나요?</h2><p>종목과 중량을 정하면 세트마다 횟수만 말하면 됩니다.</p></div>
+        <div class="field-block"><label class="label" for="exercise-input">운동 이름</label><input class="field" id="exercise-input" autocomplete="off" value="${escapeText(state.draftExercise)}" placeholder="예: 벤치프레스"><div class="suggestions"><button class="suggestion ${state.draftExercise === '벤치프레스' ? 'selected' : ''}" type="button" data-action="exercise" data-name="벤치프레스">벤치프레스</button><button class="suggestion ${state.draftExercise === '스쿼트' ? 'selected' : ''}" type="button" data-action="exercise" data-name="스쿼트">스쿼트</button><button class="suggestion ${state.draftExercise === '덤벨 컬' ? 'selected' : ''}" type="button" data-action="exercise" data-name="덤벨 컬">덤벨 컬</button></div></div>
+        <div class="field-row"><div class="field-block"><label class="label" for="weight-input">중량 · kg</label><input class="field" id="weight-input" type="number" min="0" step="0.5" inputmode="decimal" value="${state.weight}"></div><div class="field-block"><label class="label" for="target-input">목표 횟수</label><input class="field" id="target-input" type="number" min="1" step="1" inputmode="numeric" value="${state.target}"></div></div>
+        <div class="notice info"><strong>중량 표기 기준</strong><span>바벨은 바 포함 총중량, 덤벨은 한 손 중량으로 표시합니다.</span></div>
+        <p class="helper">목표 횟수와 실제 수행 횟수는 따로 저장합니다.</p>
+      </section>`;
+    }
+    function voiceNotice() {
+      if (state.voice === 'listening') return '<div class="notice info" role="status"><strong>듣는 중…</strong><span>“8개”처럼 실제 수행 횟수를 말해주세요.</span></div>';
+      if (state.voice === 'saved') return `<div class="notice success" role="status"><strong>${state.sets.length}세트 · ${state.sets.at(-1)?.weight ?? state.weight}kg × ${state.sets.at(-1)?.reps ?? 0}회 저장됨</strong><div class="notice-actions"><button type="button" data-action="undo">방금 기록 취소</button></div></div>`;
+      if (state.voice === 'confirm') return '<div class="notice warning" role="alert"><strong>8회 또는 18회로 들었어요.</strong><span>기록할 횟수를 선택해주세요. 아직 저장되지 않았습니다.</span><div class="notice-actions"><button type="button" data-action="confirm" data-reps="8">8회</button><button type="button" data-action="confirm" data-reps="18">18회</button><button type="button" data-action="retry">다시 말하기</button></div></div>';
+      if (state.voice === 'fail') return '<div class="notice error" role="alert"><strong>횟수를 알아듣지 못했어요.</strong><span>한 번 더 말하거나 직접 입력해 주세요. 기록은 추가되지 않았습니다.</span><div class="notice-actions"><button type="button" data-action="retry">다시 말하기</button><button type="button" data-action="manual">직접 입력</button></div></div>';
+      if (state.voice === 'offline') return '<div class="notice warning" role="alert"><strong>인터넷 연결이 없어 음성 입력을 사용할 수 없어요.</strong><span>지금은 세트 결과를 직접 입력할 수 있습니다. 연결 후 다시 음성으로 기록하세요.</span><div class="notice-actions"><button type="button" data-action="manual">직접 입력</button><button type="button" data-action="reconnect">연결 복구 미리보기</button></div></div>';
+      if (state.voice === 'undone') return '<div class="notice info" role="status"><strong>마지막 기록을 취소했어요.</strong><div class="notice-actions"><button type="button" data-action="restore">되돌리기</button></div></div>';
+      if (state.voice === 'test') return '<div class="notice info" role="status"><strong>음성 입력 화면 예시</strong><span>실제 앱에서는 여기서 마이크 권한을 요청하고 온라인 음성 인식을 시험합니다.</span></div>';
+      return '';
+    }
+    let removedSet = null;
+    function renderActive() {
+      const sets = state.sets.map((set, index) => `<div class="set-row"><span class="set-index">${index + 1}세트</span><span class="set-detail">${set.weight}kg × ${set.reps}회</span><button class="text-button" type="button" data-action="edit" data-id="${set.id}" aria-label="${index + 1}세트 수정">수정</button></div>`).join('');
+      const sameExerciseHistory = state.pastExercises.filter(item => item.name === state.exercise).flatMap(item => item.sets);
+      const previous = sameExerciseHistory.length ? sameExerciseHistory.map(set => `${set.weight}kg × ${set.reps}회`).join(' / ') : '이 종목의 이전 기록이 없습니다.';
+      return `<section class="phone-screen">
+        <div class="screen-topline"><span class="small-caps">운동 중</span><button class="text-button" type="button" data-action="finish">운동 마치기</button></div>
+        <div class="screen-intro"><h2>${escapeText(state.exercise)}</h2><p>현재 운동의 세트를 기록하고 있어요.</p></div>
+        <div class="hero-data"><span class="hero-label">현재 설정</span><div class="hero-value">${state.weight}<span>kg</span> <span>· 목표 ${state.target}회</span></div><div class="hero-meta"><span>${state.exercise.includes('덤벨') ? '한 손 중량' : '바 포함 총중량'}</span><button class="text-button" type="button" data-action="view" data-view="setup">설정 변경</button></div></div>
+        <div class="card compact"><span class="small-caps">지난 기록</span><span class="fine muted">${previous}</span></div>
+        <div class="section-heading"><h3>오늘 기록</h3><button class="text-button" type="button" data-action="view" data-view="setup">운동 바꾸기</button></div>
+        ${state.sets.length ? `<div class="set-list">${sets}</div>` : '<div class="empty"><strong>아직 세트 기록이 없어요</strong><span>운동이 끝나면 마이크 버튼을 누르고 횟수를 말해주세요.</span></div>'}
+        ${voiceNotice()}
+      </section>`;
+    }
+    function renderHistory() {
+      const entries = recordedExercises();
+      const hasRecord = entries.length > 0;
+      const totalSets = entries.reduce((total, entry) => total + entry.sets.length, 0);
+      if (state.historyDetail && hasRecord) return `<section class="phone-screen"><div class="screen-topline"><button class="text-button" type="button" data-action="history-back">‹ 기록 목록</button></div><div class="screen-intro"><div class="small-caps">운동 상세</div><h2>9월 25일 기록</h2><p>종목별로 실제 수행한 세트를 확인합니다.</p></div><div class="card compact"><span class="small-caps">운동 요약</span><span class="card-title">${entries.length}종목 · ${totalSets}세트</span></div>${entries.map(entry => `<div class="section-heading"><h3>${escapeText(entry.name)}</h3></div><div class="set-list">${entry.sets.map((set, index) => `<div class="set-row"><span class="set-index">${index + 1}세트</span><span class="set-detail">${set.weight}kg × ${set.reps}회</span><button class="text-button" type="button" data-action="edit" data-id="${set.id}">수정</button></div>`).join('')}</div>`).join('')}</section>`;
+      return `<section class="phone-screen"><div class="screen-intro"><div class="small-caps">운동 기록</div><h2>남긴 기록을<br>다시 확인해요.</h2><p>날짜를 누르면 종목과 세트별 기록을 볼 수 있습니다.</p></div>${hasRecord ? `<button class="card history-item" type="button" data-action="history-detail"><span class="top"><span>9월 25일</span><span>›</span></span><span class="bottom">${entries.map(item => escapeText(item.name)).join(' · ')} · ${totalSets}세트</span></button>` : '<div class="empty"><strong>아직 기록이 없어요</strong><span>첫 운동을 시작해 세트를 기록하면 여기에 나타납니다.</span></div>'}<div class="card"><span class="card-title">기록 보관</span><p class="fine muted">마지막 백업: 없음</p><p class="helper">브라우저 데이터가 삭제되면 파일 백업 없이 기록을 복원할 수 없습니다.</p><div class="footer-row"><button class="small-button" type="button" data-action="mock-backup">파일 내보내기</button><button class="small-button" type="button" data-action="mock-backup">파일 복원</button></div></div></section>`;
+    }
+    function renderFooter() {
+      if (state.view === 'prepare') return '<button class="primary" type="button" data-action="view" data-view="home">운동 시작하기</button>';
+      if (state.view === 'home' || state.view === 'history') return `<div class="tabbar"><button class="${state.view === 'home' ? 'active' : ''}" type="button" data-action="view" data-view="home">운동</button><button class="${state.view === 'history' ? 'active' : ''}" type="button" data-action="view" data-view="history">기록</button></div>`;
+      if (state.view === 'setup') return '<button class="primary" type="button" data-action="start-exercise">이 종목으로 시작</button>';
+      return `<button class="mic-button ${state.voice === 'listening' ? 'listening' : ''}" type="button" data-action="mic" ${state.online ? '' : 'disabled'} aria-label="${state.online ? (state.voice === 'listening' ? '음성 입력 끝내기' : '마이크로 세트 기록하기') : '인터넷 연결 후 음성 입력 가능'}">${micIcon}${state.online ? (state.voice === 'listening' ? '입력 끝내기' : '눌러서 말하기') : '음성 입력은 온라인에서'}</button><div class="footer-row"><button class="small-button" type="button" data-action="manual">직접 입력</button><button class="small-button" type="button" data-action="view" data-view="history">기록 보기</button></div>`;
+    }
+    function renderOverlay() {
+      if (state.editingId === null) { document.getElementById('phone-overlay').innerHTML = ''; return; }
+      const set = findSet(state.editingId);
+      const isNew = !set;
+      document.getElementById('phone-overlay').innerHTML = `<div class="phone-overlay"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title"><div class="sheet-handle"></div><h3 id="sheet-title">${isNew ? '세트 직접 입력' : '세트 기록 수정'}</h3><div class="field-row"><div class="field-block"><label class="label" for="edit-weight">중량 · kg</label><input class="field" id="edit-weight" type="number" min="0" step="0.5" inputmode="decimal" value="${set?.weight ?? state.weight}"></div><div class="field-block"><label class="label" for="edit-reps">실제 횟수</label><input class="field" id="edit-reps" type="number" min="0" step="1" inputmode="numeric" value="${set?.reps ?? ''}" placeholder="횟수"></div></div><p class="helper">목표 횟수와 실제 기록은 다릅니다.</p><div class="footer-row"><button class="secondary" type="button" data-action="close-sheet">취소</button><button class="primary" type="button" data-action="save-sheet">저장</button></div></div></div>`;
+    }
+    function render() {
+      nav();
+      const screens = { prepare: renderPrepare, home: renderHome, setup: renderSetup, active: renderActive, history: renderHistory };
+      document.getElementById('phone-viewport').innerHTML = screens[state.view]();
+      document.getElementById('phone-footer').innerHTML = renderFooter();
+      renderOverlay();
+    }
+    function showView(view) {
+      if (view === 'setup') state.draftExercise = state.exercise;
+      state.view = view;
+      state.editingId = null;
+      if (view !== 'history') state.historyDetail = false;
+      render();
+      document.getElementById('phone-viewport').scrollTop = 0;
+    }
+    function addSet(reps, weight = state.weight) {
+      state.sets.push({ id: state.nextId++, weight, reps });
+      state.voice = 'saved';
+      removedSet = null;
+      render();
+      document.getElementById('phone-viewport').scrollTop = document.getElementById('phone-viewport').scrollHeight;
+    }
+    document.addEventListener('click', event => {
+      const button = event.target.closest('button[data-action]');
+      if (!button) return;
+      const action = button.dataset.action;
+      if (action === 'view') { showView(button.dataset.view); return; }
+      if (action === 'exercise') { state.draftExercise = button.dataset.name; render(); return; }
+      if (action === 'test-mic') { state.voice = 'test'; showView('active'); return; }
+      if (action === 'reconnect') { state.online = true; state.voice = 'ready'; render(); return; }
+      if (action === 'mock-backup') { alert('이 화면은 목업입니다. 실제 파일 내보내기·복원은 구현되지 않았습니다.'); return; }
+      if (action === 'start-exercise') {
+        const exercise = document.getElementById('exercise-input').value.trim();
+        const weight = Number(document.getElementById('weight-input').value);
+        const target = Number(document.getElementById('target-input').value);
+        if (!exercise || !Number.isFinite(weight) || weight < 0 || !Number.isInteger(target) || target < 1) { alert('운동 이름, 0kg 이상의 중량, 1회 이상의 목표 횟수를 입력해 주세요.'); return; }
+        if (exercise !== state.exercise && state.sets.length) { state.pastExercises.push({ name: state.exercise, sets: state.sets }); state.sets = []; }
+        state.exercise = exercise; state.weight = weight; state.target = target; state.finished = false; state.voice = 'ready'; showView('active'); return;
+      }
+      if (action === 'finish') { state.finished = true; state.voice = 'ready'; showView('history'); return; }
+      if (action === 'new-workout') { if (state.sets.length) state.pastExercises.push({ name: state.exercise, sets: state.sets }); state.sets = []; state.finished = false; state.voice = 'ready'; showView('setup'); return; }
+      if (action === 'mic') { state.voice = state.online ? (state.voice === 'listening' ? 'fail' : 'listening') : 'offline'; render(); return; }
+      if (action === 'simulate') {
+        state.view = 'active';
+        const kind = button.dataset.kind;
+        if (kind === 'eight') addSet(8);
+        else if (kind === 'weight') addSet(9, 75);
+        else { state.voice = kind === 'ambiguous' ? 'confirm' : kind; if (kind === 'offline') state.online = false; render(); }
+        return;
+      }
+      if (action === 'confirm') { addSet(Number(button.dataset.reps)); return; }
+      if (action === 'retry') { state.voice = 'listening'; render(); return; }
+      if (action === 'manual') { state.editingId = -1; renderOverlay(); document.getElementById('edit-reps').focus(); return; }
+      if (action === 'edit') { state.editingId = Number(button.dataset.id); renderOverlay(); document.getElementById('edit-reps').focus(); return; }
+      if (action === 'close-sheet') { state.editingId = null; renderOverlay(); return; }
+      if (action === 'save-sheet') {
+        const weight = Number(document.getElementById('edit-weight').value);
+        const rawReps = document.getElementById('edit-reps').value;
+        const reps = Number(rawReps);
+        if (!Number.isFinite(weight) || weight < 0 || !rawReps || !Number.isInteger(reps) || reps < 0) { alert('0kg 이상의 중량과 0회 이상의 실제 횟수를 입력해 주세요.'); return; }
+        const set = findSet(state.editingId);
+        if (set) { set.weight = weight; set.reps = reps; state.voice = 'ready'; }
+        else addSet(reps, weight);
+        state.editingId = null; render(); return;
+      }
+      if (action === 'undo') { removedSet = state.sets.pop(); state.voice = 'undone'; render(); return; }
+      if (action === 'restore' && removedSet) { state.sets.push(removedSet); removedSet = null; state.voice = 'saved'; render(); return; }
+      if (action === 'history-detail') { state.historyDetail = true; showView('history'); state.historyDetail = true; render(); return; }
+      if (action === 'history-back') { state.historyDetail = false; render(); return; }
+      if (action === 'reset') { state.view = 'active'; state.exercise = '벤치프레스'; state.draftExercise = '벤치프레스'; state.weight = 70; state.target = 10; state.sets = initialSets.map(set => ({ ...set })); state.pastExercises = []; state.voice = 'ready'; state.online = true; state.editingId = null; state.historyDetail = false; state.finished = false; state.nextId = 3; removedSet = null; render(); }
+    });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape' && state.editingId !== null) { state.editingId = null; renderOverlay(); } });
+    render();
+  </script>
+</body>
+</html>

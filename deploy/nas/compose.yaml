@@ -1,0 +1,16 @@
+name: voice-fitness-pwa
+services:
+  web:
+    image: nginx:stable-alpine
+    container_name: voice-fitness-pwa
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./site:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+    security_opt:
+      - no-new-privileges:true
