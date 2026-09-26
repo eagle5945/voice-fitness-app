@@ -1,5 +1,5 @@
-const CACHE = 'voice-fitness-v19';
-const FILES = ['./', './index.html', './styles.css', './app.mjs?v=20260926-12', './db.mjs', './domain.mjs', './parser.mjs', './dictation.mjs', './csv.mjs', './workout-guide.mjs', './manifest.webmanifest', './icon.svg', './icon-192.png'];
+const CACHE = 'voice-fitness-v20';
+const FILES = ['./', './index.html', './styles.css', './neon.css', './app.mjs?v=20260926-13', './db.mjs', './domain.mjs', './parser.mjs', './dictation.mjs', './csv.mjs', './workout-guide.mjs', './manifest.webmanifest', './icon.svg', './icon-192.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES)).then(() => self.skipWaiting()));
 });
