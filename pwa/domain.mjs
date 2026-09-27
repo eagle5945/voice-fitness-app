@@ -113,6 +113,34 @@ export function updateSet(data, setId, { reps, weight }, at = new Date().toISOSt
 export const cancelSet = (data, setId, at = new Date().toISOString()) => changeSet(data, setId, set => { set.canceledAt = at; });
 export const restoreSet = (data, setId) => changeSet(data, setId, set => { set.canceledAt = null; });
 
+export function deleteSetRecord(source, setId) {
+  const data = copy(source);
+  let found = false;
+  for (const session of data.sessions) for (const exercise of session.exercises) {
+    const index = exercise.sets.findIndex(set => set.id === setId);
+    if (index >= 0) { exercise.sets.splice(index, 1); found = true; break; }
+  }
+  if (!found) throw new Error('세트 기록을 찾지 못했습니다.');
+  return data;
+}
+
+export function deleteSession(source, sessionId) {
+  const data = copy(source);
+  const index = data.sessions.findIndex(session => session.id === sessionId);
+  if (index < 0) throw new Error('운동 기록을 찾지 못했습니다.');
+  data.sessions.splice(index, 1);
+  if (data.activeSessionId === sessionId) { data.activeSessionId = null; data.activeExerciseId = null; }
+  return data;
+}
+
+export function clearSessionHistory(source) {
+  const data = copy(source);
+  data.sessions = [];
+  data.activeSessionId = null;
+  data.activeExerciseId = null;
+  return data;
+}
+
 export function finishSession(source, sessionId, endedAt) {
   const data = copy(source);
   const session = findSession(data, sessionId);
