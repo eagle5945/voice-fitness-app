@@ -141,6 +141,23 @@ svg.icon { flex: none; display: block; }
 .form-actions { display: flex; flex-wrap: wrap-reverse; gap: 8px; justify-content: flex-end; }
 .form-actions > .button { flex: 1 1 160px; }
 
+/* Header tools: short meta, info toggle and icon buttons aligned on the right */
+.head-tools { display: flex; align-items: center; gap: 4px; flex: none; }
+.info-toggle { position: relative; }
+.info-toggle > summary {
+  display: grid; place-items: center; width: var(--control-height); height: var(--control-height);
+  border-radius: var(--radius-control); color: var(--text-secondary); cursor: pointer; list-style: none;
+  transition: background-color var(--duration), color var(--duration);
+}
+.info-toggle > summary::-webkit-details-marker { display: none; }
+.info-toggle > summary:hover { background: var(--surface-muted); color: var(--text); }
+.info-toggle[open] > summary { background: var(--primary-soft); color: var(--primary); }
+.info-pop {
+  position: absolute; z-index: 15; top: calc(100% + 4px); right: 0; width: min(280px, calc(100vw - 32px));
+  padding: 12px 14px; background: var(--surface); color: var(--text); border: 1px solid var(--border);
+  border-radius: var(--radius-card); box-shadow: var(--shadow-overlay); font-size: 14px; font-weight: 400; line-height: 1.5; white-space: normal;
+}
+
 /* Card */
 .card { display: grid; gap: 16px; align-content: start; min-width: 0; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); box-shadow: var(--shadow-card); }
 .form-card { max-width: 640px; }
@@ -284,7 +301,6 @@ input::placeholder, textarea::placeholder { color: var(--text-secondary); }
 .records-more > summary { margin: 0; }
 
 /* Routines */
-.routine-names { font-size: 15px; color: var(--text); overflow-wrap: anywhere; }
 .card-actions { display: flex; align-items: center; gap: 4px; padding-top: 12px; border-top: 1px solid var(--border); }
 .card-actions .button { margin-right: auto; }
 .empty-state { justify-items: center; text-align: center; padding: 32px 20px; }

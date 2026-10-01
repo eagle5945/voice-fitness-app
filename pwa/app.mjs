@@ -90,7 +90,6 @@ function confirmAction({ title, message, confirmLabel, danger = true }) {
 
 const planSets = routine => routine.exercises.reduce((n, item) => n + (item.plannedSets ?? 0), 0);
 const kindLabel = { barbell: '바벨', dumbbell: '덤벨 한 손', machine: '머신' };
-const equipmentText = kind => kind === 'dumbbell' ? '덤벨 · 한 손 중량' : kind === 'machine' ? '머신 · 표시 중량' : '바벨 · 바 포함 총중량';
 const selection = () => data.routines.find(item => item.id === selectedRoutineId) ?? data.routines.find(item => item.id === data.selectedRoutineId) ?? data.routines[0];
 const shortDate = iso => new Intl.DateTimeFormat('ko-KR', { month: 'short', day: 'numeric' }).format(new Date(iso));
 const sessionLabel = session => session.routineName ?? session.exercises[0]?.name ?? '자유 운동';
@@ -99,6 +98,10 @@ const progress = (value, total, label = '계획 세트 진행') => `<progress cl
 // Every status badge carries text, and an icon where it helps, so meaning never depends on color alone.
 const badge = (kind, iconName, text) => `<span class="badge badge-${kind}">${iconName ? icon(iconName, { size: 16 }) : ''}<span>${text}</span></span>`;
 const pageHead = (eyebrow, title, description = '', actions = '') => `<header class="page-head"><div class="page-head-text">${eyebrow ? `<p class="eyebrow">${eyebrow}</p>` : ''}<h1 class="page-title">${title}</h1>${description ? `<p class="page-desc">${description}</p>` : ''}</div>${actions ? `<div class="page-actions">${actions}</div>` : ''}</header>`;
+// Secondary explanations stay one tap away instead of filling the screen.
+const infoToggle = (label, text) => `<details class="info-toggle"><summary aria-label="${label}">${icon('info')}</summary><p class="info-pop">${text}</p></details>`;
+const kindShort = { barbell: '바벨', dumbbell: '덤벨', machine: '머신' };
+const weightBasis = { barbell: '중량은 바를 포함한 총중량입니다.', dumbbell: '중량은 덤벨 한 손 무게입니다.', machine: '중량은 기구에 표시된 무게입니다.' };
 const restLabel = rest => `${rest.text}${rest.ready ? ' · 다음 세트 준비' : ''}`;
 
 function planPreview(routine) {
@@ -135,7 +138,7 @@ function activitySection() {
     return `<div class="heat-week"><span class="heat-month">${label ? `${Number(label.key.slice(5, 7))}월` : ''}</span>${column.map(cell).join('')}</div>`;
   }).join('');
   const levels = [0, 1, 2, 3, 4].map(level => `<span class="heat-cell level-${level}"></span>`).join('');
-  return `<section class="section" aria-labelledby="activity-title"><div class="section-head"><h2 id="activity-title" class="section-title">운동 잔디</h2><span class="meta">최근 16주</span></div>
+  return `<section class="section" aria-labelledby="activity-title"><div class="section-head"><h2 id="activity-title" class="section-title">운동 잔디</h2><div class="head-tools"><span class="meta">최근 16주</span>${infoToggle('운동 잔디 기준', '하루 세트 수에 따라 진하게 칠합니다: 1~5 · 6~10 · 11~15 · 16세트 이상. 연속은 한 번이라도 운동한 주를 셉니다.')}</div></div>
     <div class="card activity-card">
       <dl class="activity-summary"><div><dt>운동한 날</dt><dd>${calendar.activeDays}<span class="unit">일</span></dd></div><div><dt>세트</dt><dd>${calendar.totalSets}</dd></div><div><dt>연속</dt><dd>${calendar.streak}<span class="unit">주</span></dd></div></dl>
       <div class="heatmap" role="img" aria-label="최근 16주 동안 ${calendar.activeDays}일 운동, 총 ${calendar.totalSets}세트, ${calendar.streak}주 연속">
@@ -143,7 +146,6 @@ function activitySection() {
         <div class="heat-grid" aria-hidden="true">${columns}</div>
       </div>
       <div class="heat-legend"><span class="meta">적음</span>${levels}<span class="meta">많음</span></div>
-      <p class="meta">하루 세트 수 기준: 1~5 · 6~10 · 11~15 · 16세트 이상. 연속은 한 번이라도 운동한 주를 셉니다.</p>
     </div></section>`;
 }
 function volumeSection() {
@@ -151,11 +153,10 @@ function volumeSection() {
   const max = Math.max(...rows.map(row => row.volume), 1);
   const changeText = change === null ? '<p class="meta">지난주 같은 요일까지의 기록이 없습니다.</p>'
     : `<p class="volume-change">${icon(change >= 0 ? 'arrow-up' : 'arrow-down', { size: 18 })}<span>지난주 같은 요일까지보다 ${Math.abs(change)}% ${change >= 0 ? '많음' : '적음'}</span></p>`;
-  return `<section class="section" aria-labelledby="volume-title"><div class="section-head"><h2 id="volume-title" class="section-title">주간 볼륨</h2><span class="meta">중량 × 횟수 합계</span></div>
+  return `<section class="section" aria-labelledby="volume-title"><div class="section-head"><h2 id="volume-title" class="section-title">주간 볼륨</h2>${infoToggle('주간 볼륨 계산 방법', '볼륨은 중량 × 횟수의 합계입니다. 덤벨은 한 손 중량의 2배로 계산하고, 취소한 세트는 뺍니다.')}</div>
     <div class="card volume-card">
       <div class="volume-headline"><p class="meta">이번 주</p><p class="hero-title">${kgText(thisWeek)}</p>${changeText}</div>
       <table class="data-table volume-table"><thead><tr><th scope="col">주</th><th scope="col">운동일</th><th scope="col">세트</th><th scope="col">볼륨</th></tr></thead><tbody>${[...rows].reverse().map(row => `<tr${row.current ? ' class="current"' : ''}><th scope="row">${row.current ? '이번 주' : `${monthDay(row.start)} 주`}</th><td data-label="운동일">${row.days}일</td><td data-label="세트">${row.sets}세트</td><td class="cell-volume"><span class="volume-bar" aria-hidden="true"><span style="width: ${Math.round(row.volume / max * 100)}%"></span></span><span>${kgText(row.volume)}</span></td></tr>`).join('')}</tbody></table>
-      <p class="meta">덤벨은 한 손 중량의 2배로 계산하고, 취소한 세트는 빼고 셉니다.</p>
     </div></section>`;
 }
 // Title defaults to the routine name (or first exercise) plus the date; the dialog lets the user edit it.
@@ -187,21 +188,21 @@ function renderHome() {
       ${guide.totalSets ? progress(guide.completedSets, guide.totalSets) : ''}
       <button class="button primary full" data-action="${activeExercise() ? 'resume' : 'setup-new'}">운동 이어하기 ${icon('arrow-right')}</button>
     </section>` : data.routines.length ? `<section class="card">
-      <div class="card-head"><h2 class="card-title">오늘의 루틴</h2><button class="text-button" data-view="routines">루틴 관리 ${icon('arrow-right')}</button></div>
+      <div class="card-head"><h2 class="card-title">오늘의 루틴</h2><button class="icon-button" data-view="routines" aria-label="루틴 관리">${icon('arrow-right')}</button></div>
       <div class="chip-group" role="group" aria-label="오늘 할 루틴 선택">${data.routines.map(item => { const on = item.id === routine?.id; return `<button class="chip ${on ? 'selected' : ''}" aria-pressed="${on}" data-action="choose-today-routine" data-id="${escapeHtml(item.id)}">${on ? icon('check', { size: 16 }) : ''}<span>${escapeHtml(item.title)}</span></button>`; }).join('')}</div>
       <div class="plan-head"><p class="card-title">${escapeHtml(routine.title)}</p><span class="meta">${routine.exercises.length}개 종목 · ${planSets(routine)}세트</span></div>
       ${planPreview(routine)}
       <button class="button primary full" data-action="start-routine">${icon('dumbbell')} 운동 시작</button>
     </section>${freeStart}` : `<section class="card empty-state"><span class="empty-icon">${icon('list-checks', { size: 28 })}</span><h2 class="card-title">루틴을 먼저 만들어 주세요</h2><p class="meta">자주 하는 운동을 순서대로 저장하면 운동할 때 하나씩 안내합니다.</p><button class="button primary" data-action="new-routine">${icon('plus')} 첫 루틴 만들기</button></section>${freeStart}`;
-  return `${pageHead(date, session ? '진행 중인 운동이 있습니다' : '오늘 운동', session ? '이어서 세트를 기록하세요.' : '루틴을 선택하고 운동을 시작하세요.')}
+  return `${pageHead(date, session ? '진행 중인 운동이 있습니다' : '오늘 운동')}
     <div class="layout-split"><div class="col-main stack">${primary}</div>
-    <aside class="col-side stack" aria-label="최근 운동과 도움말"><section class="card"><div class="card-head"><h2 class="card-title">최근 운동</h2><button class="text-button" data-view="history">전체 보기 ${icon('arrow-right')}</button></div>${recent.length ? `<ul class="list">${recent.map(recentItem).join('')}</ul>` : '<p class="meta">첫 운동을 기록하면 여기에 표시됩니다.</p>'}</section>
-    <details class="card disclosure"><summary><span>홈 화면에 추가하기</span>${icon('chevron-down')}</summary><div class="disclosure-body"><p class="meta">Safari 공유 메뉴에서 ‘홈 화면에 추가’를 선택하세요. 루틴과 기록은 이 기기에 저장되며, 기록 탭에서 JSON으로 백업할 수 있습니다.</p><p class="meta version-label">버전 20261001-28</p></div></details></aside></div>`;
+    <aside class="col-side stack" aria-label="최근 운동과 도움말"><section class="card"><div class="card-head"><h2 class="card-title">최근 운동</h2><button class="icon-button" data-view="history" aria-label="최근 운동 전체 보기">${icon('arrow-right')}</button></div>${recent.length ? `<ul class="list">${recent.map(recentItem).join('')}</ul>` : '<p class="meta">첫 운동을 기록하면 여기에 표시됩니다.</p>'}</section>
+    <details class="card disclosure"><summary><span>홈 화면에 추가하기</span>${icon('chevron-down')}</summary><div class="disclosure-body"><p class="meta">Safari 공유 메뉴에서 ‘홈 화면에 추가’를 선택하세요. 루틴과 기록은 이 기기에 저장되며, 기록 탭에서 JSON으로 백업할 수 있습니다.</p><p class="meta version-label">버전 20261001-29</p></div></details></aside></div>`;
 }
 
 function renderSetup() {
   const exercise = activeSession()?.exercises.find(item => item.id === editingExerciseId);
-  return `${pageHead('운동 설정', exercise ? '목표 변경' : '어떤 운동을 하나요?', '중량과 목표 횟수를 정하세요. 실제 횟수는 세트를 마친 뒤 기록합니다.')}
+  return `${pageHead('운동 설정', exercise ? '목표 변경' : '어떤 운동을 하나요?')}
     <form id="exercise-form" class="card form-card stack">
       <label class="field"><span class="label">운동 이름</span><input name="name" required maxlength="60" autocomplete="off" placeholder="예: 벤치프레스" value="${escapeHtml(exercise?.name ?? '')}"></label>
       <label class="field"><span class="label">장비</span><select name="kind"><option value="machine" ${exercise?.kind === 'machine' ? 'selected' : ''}>머신 · 기구 표시 중량</option><option value="barbell" ${exercise?.kind === 'barbell' ? 'selected' : ''}>바벨 · 바 포함 총중량</option><option value="dumbbell" ${exercise?.kind === 'dumbbell' ? 'selected' : ''}>덤벨 · 한 손 중량</option></select></label>
@@ -223,18 +224,17 @@ function renderActive() {
   const restTarget = typicalRest(data.sessions, exercise);
   const rest = restSince && restText(restSince, restTarget, Date.now());
   const eyebrow = `${escapeHtml(session.routineName ?? '자유 운동')}${session.routineName ? ` · ${guide.position + 1}/${session.exercises.length} 종목` : ''}`;
-  return `${pageHead(eyebrow, escapeHtml(exercise.name), '', `<button class="button secondary" data-action="finish">${icon('flag')} 운동 종료</button>`)}
+  return `${pageHead(eyebrow, escapeHtml(exercise.name), '', `<button class="button secondary" data-action="finish" aria-label="운동 종료">${icon('flag')} 종료</button>`)}
     <div class="layout-split"><div class="col-main stack">
     <section class="card target-card" aria-label="현재 목표">
-      <div class="card-head">${guide.currentComplete ? badge('success', 'circle-check', '계획 세트 완료') : badge('primary', '', `${sets.length + 1}세트 차례`)}<button class="text-button" data-action="edit-exercise">${icon('pencil')} 목표 변경</button></div>
+      <div class="card-head">${guide.currentComplete ? badge('success', 'circle-check', '계획 세트 완료') : badge('primary', '', `${sets.length + 1}세트 차례`)}<div class="head-tools">${badge('neutral', '', kindShort[exercise.kind])}${infoToggle('장비 중량 기준', weightBasis[exercise.kind])}<button class="icon-button" data-action="edit-exercise" aria-label="목표 변경">${icon('pencil')}</button></div></div>
       <dl class="metric-grid"><div><dt>중량</dt><dd>${exercise.weight}<span class="unit">kg</span></dd></div><div><dt>목표 횟수</dt><dd>${exercise.target}<span class="unit">회</span></dd></div><div><dt>세트</dt><dd>${exercise.plannedSets ? `${Math.min(sets.length, exercise.plannedSets)}<span class="unit">/ ${exercise.plannedSets}</span>` : `${sets.length}<span class="unit">세트</span>`}</dd></div></dl>
       ${exercise.plannedSets ? progress(sets.length, exercise.plannedSets) : ''}
-      <p class="meta">${equipmentText(exercise.kind)}</p>
       ${exercise.kind === 'barbell' ? `<p class="plate-line">${icon('dumbbell', { size: 18 })}<span>${plateText(platesFor(exercise.weight))}</span></p>` : ''}
     </section>
     ${rest ? `<p id="rest-timer" class="rest-timer ${rest.ready ? 'ready' : ''}" role="timer" data-since="${restSince}" data-target="${restTarget ?? ''}">${icon('timer', { size: 18 })}${icon('circle-check', { size: 18 })}<span class="rest-text">${restLabel(rest)}</span></p>` : ''}
     ${suggestion ? `<section class="card callout callout-primary progression-card"><div class="callout-head"><span class="callout-icon">${icon('trending-up')}</span><div><p class="card-title">오늘은 ${suggestion.weight}kg 도전</p><p class="meta">지난번 ${suggestion.base}kg로 ${suggestion.sets}세트를 ${suggestion.reps}회 이상 했습니다.</p></div></div><div class="button-row"><button class="button secondary" data-action="dismiss-progression">${exercise.weight}kg 유지</button><button class="button primary" data-action="apply-progression">${icon('arrow-up')} ${suggestion.weight}kg로 올리기</button></div></section>` : ''}
-    ${guide.currentComplete ? `<section class="card callout callout-success"><div class="callout-head"><span class="callout-icon">${icon('circle-check')}</span><div><p class="card-title">${guide.allComplete ? '오늘의 루틴을 모두 완료했습니다' : '이 종목의 계획 세트를 완료했습니다'}</p><p class="meta">${guide.allComplete ? '운동을 마무리하고 기록을 저장하세요.' : '다음 종목으로 이어가세요.'}</p></div></div>${guide.next ? `<button class="button primary full" data-action="choose-routine-exercise" data-id="${escapeHtml(guide.next.id)}">다음 종목 · ${escapeHtml(guide.next.name)} ${icon('arrow-right')}</button>` : `<button class="button primary full" data-action="finish">${icon('flag')} 운동 마무리</button>`}<button class="button secondary full" data-action="manual-set">${icon('plus')} 추가 세트 기록</button></section>` : `<div class="record-actions"><button class="button primary record-button" data-action="open-dictation">${icon('mic', { size: 22 })} 받아쓰기로 기록</button><button class="button secondary" data-action="manual-set">${icon('pencil')} 직접 입력</button><p class="meta">버튼을 누른 뒤 iPhone 키보드의 마이크로 말하세요.</p></div>`}
+    ${guide.currentComplete ? `<section class="card callout callout-success"><div class="callout-head"><span class="callout-icon">${icon('circle-check')}</span><div><p class="card-title">${guide.allComplete ? '오늘의 루틴을 모두 완료했습니다' : '이 종목의 계획 세트를 완료했습니다'}</p><p class="meta">${guide.allComplete ? '운동을 마무리하고 기록을 저장하세요.' : '다음 종목으로 이어가세요.'}</p></div></div>${guide.next ? `<button class="button primary full" data-action="choose-routine-exercise" data-id="${escapeHtml(guide.next.id)}">다음 종목 · ${escapeHtml(guide.next.name)} ${icon('arrow-right')}</button>` : `<button class="button primary full" data-action="finish">${icon('flag')} 운동 마무리</button>`}<button class="button secondary full" data-action="manual-set">${icon('plus')} 추가 세트 기록</button></section>` : `<div class="record-actions"><button class="button primary record-button" data-action="open-dictation">${icon('mic', { size: 22 })} 받아쓰기로 기록</button><button class="button secondary" data-action="manual-set">${icon('pencil')} 직접 입력</button></div>`}
     </div><aside class="col-side stack" aria-label="세트 기록과 운동 순서">
     <section class="card"><div class="card-head"><h2 class="card-title">이번 종목 기록</h2><span class="meta">${sets.length}세트</span></div>${sets.length ? setTable(sets, exercise.name) : '<p class="meta">첫 세트를 마친 뒤 기록하세요.</p>'}</section>
     ${session.routineName ? `<details class="card disclosure routine-guide"><summary><span>전체 운동 순서 <span class="meta">${guide.completedSets}/${guide.totalSets}세트 완료</span></span>${icon('chevron-down')}</summary><ol class="step-list">${session.exercises.map((item, index) => { const count = setsFor(item).length; const done = item.plannedSets && count >= item.plannedSets; const current = item.id === exercise.id; return `<li><button type="button" class="step ${current ? 'current' : ''} ${done ? 'complete' : ''}" ${current ? 'aria-current="step"' : ''} data-action="choose-routine-exercise" data-id="${escapeHtml(item.id)}"><span class="plan-index">${done ? icon('check', { size: 16 }) : index + 1}</span><span class="list-main"><strong>${escapeHtml(item.name)}</strong><span class="meta">${item.weight}kg · ${item.target}회 · ${item.plannedSets ? `${count}/${item.plannedSets}` : count}세트</span></span>${current ? badge('primary', '', '현재') : done ? badge('success', 'check', '완료') : icon('arrow-right')}</button></li>`; }).join('')}</ol></details>` : `<button class="button secondary full" data-action="setup-new">${icon('plus')} 다른 종목 추가</button>`}
@@ -243,8 +243,8 @@ function renderActive() {
 }
 function renderRoutines() {
   const today = selectedRoutineId ?? data.selectedRoutineId;
-  return `${pageHead('루틴', '나의 루틴', '자주 하는 운동을 순서대로 저장해 두세요.', `<button class="button primary" data-action="new-routine">${icon('plus')} 새 루틴</button>`)}
-    ${data.routines.length ? `<div class="card-grid">${data.routines.map(routine => { const title = escapeHtml(routine.title); return `<section class="card routine-card"><div class="card-head"><h2 class="card-title">${title}</h2>${routine.id === today ? badge('primary', 'check', '오늘 선택') : ''}</div><p class="meta">${routine.exercises.length}개 종목 · ${planSets(routine)}세트</p><p class="routine-names">${routine.exercises.map(item => escapeHtml(item.name)).join(' · ')}</p><div class="card-actions"><button class="button secondary" data-action="use-routine" data-id="${escapeHtml(routine.id)}">${icon('check')} 오늘 이 루틴</button><button class="icon-button" data-action="edit-routine" data-id="${escapeHtml(routine.id)}" aria-label="${title} 루틴 수정">${icon('pencil')}</button><button class="icon-button danger" data-action="delete-routine" data-id="${escapeHtml(routine.id)}" aria-label="${title} 루틴 삭제">${icon('trash-2')}</button></div></section>`; }).join('')}</div>` : `<section class="card empty-state"><span class="empty-icon">${icon('list-checks', { size: 28 })}</span><h2 class="card-title">아직 저장한 루틴이 없습니다</h2><p class="meta">운동 이름, 중량, 횟수, 세트 수를 저장하면 운동할 때 순서대로 안내합니다.</p><button class="button primary" data-action="new-routine">${icon('plus')} 첫 루틴 만들기</button></section>`}`;
+  return `${pageHead('루틴', '나의 루틴', '', `<button class="button primary" data-action="new-routine">${icon('plus')} 새 루틴</button>`)}
+    ${data.routines.length ? `<div class="card-grid">${data.routines.map(routine => { const title = escapeHtml(routine.title); return `<section class="card routine-card"><div class="card-head"><h2 class="card-title">${title}</h2>${routine.id === today ? badge('primary', 'check', '오늘 선택') : ''}</div><p class="meta">${routine.exercises.length}개 종목 · ${planSets(routine)}세트</p><div class="card-actions"><button class="button secondary" data-action="use-routine" data-id="${escapeHtml(routine.id)}">${icon('check')} 오늘 이 루틴</button><button class="icon-button" data-action="edit-routine" data-id="${escapeHtml(routine.id)}" aria-label="${title} 루틴 수정">${icon('pencil')}</button><button class="icon-button danger" data-action="delete-routine" data-id="${escapeHtml(routine.id)}" aria-label="${title} 루틴 삭제">${icon('trash-2')}</button></div></section>`; }).join('')}</div>` : `<section class="card empty-state"><span class="empty-icon">${icon('list-checks', { size: 28 })}</span><h2 class="card-title">아직 저장한 루틴이 없습니다</h2><p class="meta">운동 이름, 중량, 횟수, 세트 수를 저장하면 운동할 때 순서대로 안내합니다.</p><button class="button primary" data-action="new-routine">${icon('plus')} 첫 루틴 만들기</button></section>`}`;
 }
 function renderHistory() {
   const session = historySessionId && data.sessions.find(item => item.id === historySessionId);
@@ -257,11 +257,11 @@ function renderHistory() {
   const sessions = data.sessions.filter(item => item.exercises.some(exercise => setsFor(exercise).length));
   const total = sessions.reduce((n, item) => n + sessionSetCount(item), 0);
   const trends = oneRepMaxTrends(data.sessions);
-  return `${pageHead('기록', '운동 기록', '저장한 운동과 세트를 확인하고 관리합니다.')}
+  return `${pageHead('기록', '운동 기록')}
     <dl class="stat-cards"><div class="card stat"><dt>기록한 운동</dt><dd>${sessions.length}<span class="unit">회</span></dd></div><div class="card stat"><dt>누적 세트</dt><dd>${total}<span class="unit">세트</span></dd></div></dl>
     ${sessions.length ? `${activitySection()}${volumeSection()}` : ''}
     <section class="section" aria-labelledby="sessions-title"><div class="section-head"><h2 id="sessions-title" class="section-title">운동 회차</h2></div>${sessions.length ? sessionTable(sessions) : `<div class="card empty-state"><span class="empty-icon">${icon('chart-column', { size: 28 })}</span><h3 class="card-title">아직 기록이 없습니다</h3><p class="meta">첫 운동을 기록하면 여기에 표시됩니다.</p><button class="button primary" data-view="home">${icon('dumbbell')} 운동하러 가기</button></div>`}</section>
-    ${trends.length ? `<section class="section" aria-labelledby="records-title"><div class="section-head"><h2 id="records-title" class="section-title">종목별 추정 1RM</h2><span class="meta">${trends.length}종목</span></div>${recordTable(trends.slice(0, 6))}${trends.length > 6 ? `<details class="disclosure records-more"><summary><span>나머지 ${trends.length - 6}개 종목</span>${icon('chevron-down')}</summary>${recordTable(trends.slice(6))}</details>` : ''}<p class="meta">추정 1RM = 중량 × (1 + 횟수 ÷ 30). 같은 종목·장비끼리 비교합니다.</p></section>` : ''}
+    ${trends.length ? `<section class="section" aria-labelledby="records-title"><div class="section-head"><h2 id="records-title" class="section-title">종목별 추정 1RM</h2><div class="head-tools"><span class="meta">${trends.length}종목</span>${infoToggle('추정 1RM 계산 방법', '추정 1RM = 중량 × (1 + 횟수 ÷ 30). 같은 종목·장비끼리 비교합니다.')}</div></div>${recordTable(trends.slice(0, 6))}${trends.length > 6 ? `<details class="disclosure records-more"><summary><span>나머지 ${trends.length - 6}개 종목</span>${icon('chevron-down')}</summary>${recordTable(trends.slice(6))}</details>` : ''}</section>` : ''}
     <details class="card disclosure backup-panel"><summary><span>내보내기 · 복원 · 초기화</span>${icon('chevron-down')}</summary><div class="disclosure-body stack"><p class="meta">루틴과 기록은 이 기기에 저장됩니다. CSV는 조회용이고, JSON 백업으로 루틴까지 복원할 수 있습니다.</p><div class="button-wrap"><button class="button secondary" data-action="export-csv">${icon('download')} CSV 내려받기</button><button class="button secondary" data-action="export">${icon('download')} JSON 백업</button><button class="button secondary" data-action="import">${icon('upload')} JSON 복원</button></div><p class="meta">마지막 JSON 백업: ${data.lastBackupAt ? dateText(data.lastBackupAt) : '없음'}</p><div class="danger-zone"><div><p class="card-title">전체 운동 기록 삭제</p><p class="meta">운동 기록과 진행 중인 운동을 지웁니다. 저장된 루틴은 유지됩니다.</p></div><button class="button danger" data-action="clear-history" ${data.sessions.length ? '' : 'disabled'}>${icon('trash-2')} 전체 삭제</button></div></div></details>`;
 }
 
@@ -610,6 +610,10 @@ backupInput.addEventListener('change', async () => {
 // Preserve text, focus and preview when iOS switches keyboard modes or connectivity.
 window.addEventListener('online', renderHeader);
 window.addEventListener('offline', renderHeader);
+
+document.addEventListener('click', event => {
+  for (const open of document.querySelectorAll('.info-toggle[open]')) if (!open.contains(event.target)) open.open = false;
+});
 
 // Only the timer text changes each second; a full render would reset scroll and focus.
 setInterval(() => {

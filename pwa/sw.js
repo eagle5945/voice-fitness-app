@@ -1,5 +1,5 @@
-const CACHE = 'voice-fitness-v35';
-const FILES = ['./', './index.html', './styles.css', './app.mjs?v=20261001-28', './db.mjs', './domain.mjs', './parser.mjs', './dictation.mjs', './csv.mjs', './workout-guide.mjs', './progression.mjs', './records.mjs', './rest.mjs', './plates.mjs', './icons.mjs', './activity.mjs', './fonts/VFSans-Variable.woff2', './manifest.webmanifest', './icon.svg', './icon-192.png'];
+const CACHE = 'voice-fitness-v36';
+const FILES = ['./', './index.html', './styles.css', './app.mjs?v=20261001-29', './db.mjs', './domain.mjs', './parser.mjs', './dictation.mjs', './csv.mjs', './workout-guide.mjs', './progression.mjs', './records.mjs', './rest.mjs', './plates.mjs', './icons.mjs', './activity.mjs', './fonts/VFSans-Variable.woff2', './manifest.webmanifest', './icon.svg', './icon-192.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES)).then(() => self.skipWaiting()));
 });
