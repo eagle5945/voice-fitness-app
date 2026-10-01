@@ -10,8 +10,8 @@ NAS = ROOT / "deploy" / "nas"
 OUTPUT_ZIP = ROOT / "dist" / "voice-fitness-nas.zip"
 OUTPUT_TAR = ROOT / "dist" / "voice-fitness-nas.tar.gz"
 SITE_FILES = [
-    "index.html", "styles.css", "neon.css", "app.mjs", "db.mjs", "domain.mjs",
-    "parser.mjs", "dictation.mjs", "csv.mjs", "workout-guide.mjs", "progression.mjs", "records.mjs", "rest.mjs", "plates.mjs", "manifest.webmanifest", "icon.svg",
+    "index.html", "styles.css", "app.mjs", "db.mjs", "domain.mjs",
+    "parser.mjs", "dictation.mjs", "csv.mjs", "workout-guide.mjs", "progression.mjs", "records.mjs", "rest.mjs", "plates.mjs", "icons.mjs", "fonts/VFSans-Variable.woff2", "fonts/OFL.txt", "manifest.webmanifest", "icon.svg",
     "icon-192.png", "sw.js",
 ]
 
