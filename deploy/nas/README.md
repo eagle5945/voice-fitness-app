@@ -10,6 +10,8 @@ Windows에서 `python scripts/build_nas_package.py`로 생성합니다. 패키�
 
 ## 기존 설치의 단계적 전환
 
+2026-10-01에 아래 4·5단계까지 완료했습니다. STT 컨테이너와 인증 파일을 NAS에서 삭제했고 `/api/stt/status`는 404입니다. STT 프록시 코드와 `setup-stt-secrets.sh`도 저장소에서 삭제했으므로, 아래 내용은 기록용입니다.
+
 1. 기존 site와 설정을 백업합니다.
 2. site 파일만 갱신하면 실행 중 nginx에서 즉시 새 UI가 제공됩니다. 컨테이너 재시작은 필요하지 않습니다.
 3. 이 단계는 기존 STT 컨테이너와 nginx API 프록시를 종료하지 않습니다. 새 앱이 호출하지 않을 뿐 이전 공개 API는 남아 있습니다.

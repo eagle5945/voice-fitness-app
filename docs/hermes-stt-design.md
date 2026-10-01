@@ -1,5 +1,7 @@
 # 음성 운동 기록 MVP 재설계: NAS Hermes `small` STT
 
+> **폐기됨(2026-10-01).** iPhone 키보드 받아쓰기로 전환한 뒤 STT 컨테이너와 관련 코드(`pwa/speech.mjs`, `backend/stt_*.mjs`, `Dockerfile.stt`, `setup-stt-secrets.sh`)를 삭제했다. 이 문서는 설계 기록으로만 남긴다.
+
 작성일: 2026-09-26  
 상태: 로컬 구현·자동 테스트 완료. NAS 배포와 iPhone 실기기 검증은 남아 있다.
 
