@@ -3,6 +3,7 @@ import { loadData, saveData } from './db.mjs';
 import { previewDictation, confirmDictation } from './dictation.mjs';
 import { exportWorkoutCsv } from './csv.mjs';
 import { workoutGuide } from './workout-guide.mjs';
+import { findPreviousExercise, suggestProgression } from './progression.mjs';
 
 const main = document.getElementById('app-main');
 const dialog = document.getElementById('set-dialog');
@@ -22,6 +23,8 @@ let dictationPreview = null;
 let dictationSaving = false;
 let lastCanceledSetId = null;
 let fatalError = null;
+// Kept in memory only so declining a suggestion never changes the stored data format.
+const dismissedProgression = new Set();
 
 const activeSession = () => data.sessions.find(item => item.id === data.activeSessionId && !item.endedAt);
 const activeExercise = () => activeSession()?.exercises.find(item => item.id === data.activeExerciseId);
@@ -46,6 +49,7 @@ const iconPaths = {
   mic: '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3m-4 0h8"/>',
   edit: '<path d="m15 5 4 4M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15z"/>',
   check: '<path d="m5 12 4 4L19 6"/>',
+  up: '<path d="M12 19V5m-6 6 6-6 6 6"/>',
 };
 const icon = name => `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${iconPaths[name] ?? iconPaths.arrow}</svg>`;
 const planSets = routine => routine.exercises.reduce((n, item) => n + (item.plannedSets ?? 0), 0);
@@ -88,7 +92,7 @@ function renderHome() {
     <button class="text-button quiet full" data-action="setup-new">루틴 없이 자유 운동 시작</button>`}
     <div class="section-head"><h3>최근 운동</h3><button class="text-button" data-view="history">전체 보기 ${icon('arrow')}</button></div>
     ${recent.length ? `<div class="history-list">${recent.map(sessionCard).join('')}</div>` : '<div class="empty compact"><p>첫 운동을 기록하면 여기에 쌓여요.</p></div>'}
-    <details class="help-details"><summary>홈 화면에 추가해서 더 편하게</summary><p class="hint">Safari 공유 메뉴 → 홈 화면에 추가를 선택하세요. 루틴과 기록은 이 기기에 저장됩니다. 기록 탭에서 JSON 백업을 보관할 수 있어요.</p><p class="version-label">버전 20260927-18</p></details>`;
+    <details class="help-details"><summary>홈 화면에 추가해서 더 편하게</summary><p class="hint">Safari 공유 메뉴 → 홈 화면에 추가를 선택하세요. 루틴과 기록은 이 기기에 저장됩니다. 기록 탭에서 JSON 백업을 보관할 수 있어요.</p><p class="version-label">버전 20261001-19</p></details>`;
 }
 
 function renderSetup() {
@@ -108,10 +112,12 @@ function renderActive() {
   if (!session || !exercise) { view = 'home'; return renderHome(); }
   const sets = setsFor(exercise);
   const guide = workoutGuide(session, exercise.id);
-  const previous = data.sessions.filter(item => item.id !== session.id).flatMap(item => item.exercises).find(item => item.name === exercise.name && item.kind === exercise.kind && setsFor(item).length);
+  const previous = findPreviousExercise(data.sessions, exercise, session.id);
   const previousSets = previous ? setsFor(previous) : [];
+  const suggestion = dismissedProgression.has(exercise.id) ? null : suggestProgression(previous, exercise);
   return `<section class="screen-head"><div class="section-head"><span class="eyebrow">${escapeHtml(session.routineName ?? '자유 운동')}${session.routineName ? ` · ${guide.position + 1}/${session.exercises.length} 종목` : ''}</span><button class="text-button quiet" data-action="finish">운동 종료</button></div><h2>${escapeHtml(exercise.name)}</h2></section>
     <section class="target-card"><div class="section-head"><span class="set-position">${guide.currentComplete ? '계획 세트 완료' : `${sets.length + 1}세트 준비`}</span><button class="text-button" data-action="edit-exercise">목표 변경 ${icon('edit')}</button></div><div class="target-metrics"><div><span>중량</span><strong>${exercise.weight}<small>kg</small></strong></div><div><span>목표 횟수</span><strong>${exercise.target}<small>회</small></strong></div></div><div class="target-footer"><span>${equipmentText(exercise.kind)}</span>${exercise.plannedSets ? `<b>${Math.min(sets.length, exercise.plannedSets)} / ${exercise.plannedSets}세트</b>` : `<b>${sets.length}세트 기록</b>`}</div>${exercise.plannedSets ? progress(sets.length, exercise.plannedSets) : ''}</section>
+    ${suggestion ? `<section class="completion-card progression-card"><span class="complete-mark">${icon('up')}</span><div><strong>오늘은 ${suggestion.weight}kg 도전?</strong><p>지난번 ${suggestion.base}kg로 ${suggestion.sets}세트를 ${suggestion.reps}회 이상 해냈어요.</p></div><button class="button primary full" data-action="apply-progression">${suggestion.weight}kg로 올리기 ${icon('arrow')}</button><button class="text-button quiet full" data-action="dismiss-progression">이번엔 ${exercise.weight}kg 유지</button></section>` : ''}
     ${noticeMarkup()}
     ${guide.currentComplete ? `<section class="completion-card"><span class="complete-mark">${icon('check')}</span><div><strong>${guide.allComplete ? '오늘의 루틴을 모두 채웠어요.' : '이 종목의 계획을 채웠어요.'}</strong><p>${guide.allComplete ? '기록을 저장하고 운동을 마무리하세요.' : '다음 종목도 나의 페이스로 이어가세요.'}</p></div>${guide.next ? `<button class="button primary full" data-action="choose-routine-exercise" data-id="${escapeHtml(guide.next.id)}">다음 · ${escapeHtml(guide.next.name)} ${icon('arrow')}</button>` : '<button class="button primary full" data-action="finish">운동 마무리하기</button>'}<button class="text-button quiet full" data-action="manual-set">추가 세트 기록</button></section>` : `<div class="record-actions"><button class="button primary record-button" data-action="open-dictation">${icon('mic')} 받아쓰기로 기록</button><button class="button secondary" data-action="manual-set">${icon('edit')} 직접 입력</button><p class="hint">누른 뒤 iPhone 키보드 마이크로 말해주세요.</p></div>`}
     <div class="section-head"><h3>이번 종목 기록</h3><span class="muted small">${sets.length}세트</span></div>
@@ -358,6 +364,17 @@ document.addEventListener('click', async event => {
     else if (action === 'resume') go('active');
     else if (action === 'back') go(activeExercise() ? 'active' : 'home');
     else if (action === 'edit-exercise') { editingExerciseId = data.activeExerciseId; go('setup'); }
+    else if (action === 'apply-progression') {
+      // Recompute from stored data instead of trusting a weight rendered into the page.
+      const exercise = activeExercise();
+      const suggestion = exercise && suggestProgression(findPreviousExercise(data.sessions, exercise, data.activeSessionId), exercise);
+      if (!suggestion) return;
+      await commit(setExercise(data, data.activeSessionId, { id: exercise.id, name: exercise.name, kind: exercise.kind, weight: suggestion.weight, target: exercise.target }));
+      lastCanceledSetId = null;
+      notice ={ kind: 'success', text: `목표 중량을 ${suggestion.weight}kg로 올렸어요.` };
+      render();
+    }
+    else if (action === 'dismiss-progression') { dismissedProgression.add(data.activeExerciseId); render(); }
     else if (action === 'open-dictation') openDictation();
     else if (action === 'manual-set') openSetDialog();
     else if (action === 'edit-set') openSetDialog(button.dataset.id);
