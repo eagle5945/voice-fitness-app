@@ -33,5 +33,7 @@ backups/
 # Editor and OS files
 .vscode/
 .idea/
+.claude/
+.omc/
 .DS_Store
 Thumbs.db
