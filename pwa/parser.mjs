@@ -5,14 +5,14 @@ const koreanNumbers = new Map([
   ['열', 10], ['열하나', 11], ['열한', 11], ['열둘', 12], ['열두', 12], ['열셋', 13],
   ['열세', 13], ['열넷', 14], ['열네', 14], ['열다섯', 15], ['열여섯', 16],
   ['열일곱', 17], ['열여덟', 18], ['열아홉', 19], ['스물', 20], ['스무', 20],
-  ['서른', 30], ['마흔', 40], ['쉰', 50], ['육십', 60], ['칠십', 70], ['팔십', 80], ['구십', 90],
+  ['서른', 30], ['마흔', 40], ['쉰', 50], ['예순', 60], ['일흔', 70], ['여든', 80], ['아흔', 90], ['육십', 60], ['칠십', 70], ['팔십', 80], ['구십', 90],
 ]);
 
 function numberOf(raw) {
   const compact = raw.replace(/\s+/g, '');
   if (/^\d+(?:\.\d+)?$/.test(compact)) return Number(compact);
   if (koreanNumbers.has(compact)) return koreanNumbers.get(compact);
-  const tens = compact.match(/^(스물|서른|마흔|쉰)(.+)$/);
+  const tens = compact.match(/^(스물|서른|마흔|쉰|예순|일흔|여든|아흔)(.+)$/);
   if (tens && koreanNumbers.has(tens[1]) && koreanNumbers.has(tens[2]) && koreanNumbers.get(tens[2]) > 0 && koreanNumbers.get(tens[2]) < 10) {
     return koreanNumbers.get(tens[1]) + koreanNumbers.get(tens[2]);
   }
@@ -34,9 +34,11 @@ const numberChars = [...new Set([...koreanNumbers.keys()].join('') + '백천')].
 const numberToken = `[0-9]+(?:\\.[0-9]+)?|[${numberChars}]+(?:\\s+[${numberChars}]+)*`;
 const numberStart = '(?<![가-힣0-9.+-])';
 const weightUnit = '(?:kg|킬로그램|키로그램|킬로|키로)';
-const weightPattern = new RegExp(`${numberStart}(${numberToken})\\s*${weightUnit}(?![a-z가-힣])`, 'gi');
+// Spoken particles such as “70킬로에”, “70kg으로” belong to the weight; other letters (킬로미터) do not.
+const weightParticle = '(?:으로|로|에|씩)?';
+const weightPattern = new RegExp(`${numberStart}(${numberToken})\\s*${weightUnit}${weightParticle}(?![a-z가-힣])`, 'gi');
 const weightMention = new RegExp(weightUnit, 'i');
-const repsPattern = new RegExp(`${numberStart}(${numberToken})\\s*(?:회|개|번)(?=$|\\s|[.,!?]|밖에|(?:입니다|이에요|예요|했어요|했습니다|했어|완료)(?:$|\\s|[.,!?]))`, 'gi');
+const repsPattern = new RegExp(`${numberStart}(${numberToken})\\s*(?:회|개|번)(?=$|\\s|[.,!?]|밖에|(?:입니다|이에요|예요|이요|요|씩|했어요|했습니다|했어|했다|했음|완료)(?:$|\\s|[.,!?]))`, 'gi');
 
 export function parseUtterance(raw, currentWeight) {
   const text = String(raw ?? '').trim().toLowerCase();
