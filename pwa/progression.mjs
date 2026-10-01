@@ -2,12 +2,14 @@
 export const PROGRESSION_STEP = { barbell: 2.5, dumbbell: 1, machine: 5 };
 
 const validSets = exercise => exercise.sets.filter(set => !set.canceledAt);
+// Dumbbells are logged per hand, so the same name on other equipment is a different lift.
+export const sameExercise = (a, b) => a.name === b.name && a.kind === b.kind;
 
 // Sessions are stored newest first, so the first match is the latest earlier attempt.
 export function findPreviousExercise(sessions, exercise, currentSessionId) {
   return sessions.filter(session => session.id !== currentSessionId)
     .flatMap(session => session.exercises)
-    .find(item => item.name === exercise.name && item.kind === exercise.kind && validSets(item).length) ?? null;
+    .find(item => sameExercise(item, exercise) && validSets(item).length) ?? null;
 }
 
 export function suggestProgression(previous, current) {

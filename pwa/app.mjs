@@ -4,6 +4,7 @@ import { previewDictation, confirmDictation } from './dictation.mjs';
 import { exportWorkoutCsv } from './csv.mjs';
 import { workoutGuide } from './workout-guide.mjs';
 import { findPreviousExercise, suggestProgression } from './progression.mjs';
+import { findRecord, oneRepMaxTrends, sparklinePoints } from './records.mjs';
 
 const main = document.getElementById('app-main');
 const dialog = document.getElementById('set-dialog');
@@ -67,6 +68,13 @@ function sessionCard(session, { deletable = false } = {}) {
   const card = `<button class="history-card" data-action="history-detail" data-id="${escapeHtml(session.id)}"><span class="history-date">${new Intl.DateTimeFormat('ko-KR', { month: 'short', day: 'numeric' }).format(new Date(session.startedAt))}</span><span class="history-info"><strong>${escapeHtml(session.routineName ?? session.exercises[0]?.name ?? '자유 운동')}</strong><small>${session.exercises.filter(item => setsFor(item).length).length}개 종목 · ${count}세트${session.endedAt ? '' : ' · 진행 중'}</small></span>${icon('arrow')}</button>`;
   return deletable ? `<div class="swipe-row history-entry" data-swipe-row role="group" aria-label="왼쪽으로 밀어 운동 기록 삭제"><div class="swipe-content">${card}</div><button class="swipe-delete" data-action="delete-session" data-id="${escapeHtml(session.id)}" aria-label="${escapeHtml(session.routineName ?? session.exercises[0]?.name ?? '운동')} 기록 삭제">삭제</button></div>` : card;
 }
+const kindLabel = { barbell: '바벨', dumbbell: '덤벨 한 손', machine: '머신' };
+function recordRow(trend) {
+  const points = sparklinePoints(trend.points.map(point => point.value), 84, 28);
+  const [x, y] = points.at(-1);
+  const chart = points.length > 1 ? `<svg class="sparkline" viewBox="0 0 84 28" width="84" height="28" role="img" aria-label="${escapeHtml(`${trend.name} 추정 1RM ${trend.points[0].value}kg에서 ${trend.latest}kg`)}"><polyline points="${points.map(point => point.join(',')).join(' ')}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${x}" cy="${y}" r="2.6" fill="currentColor"/></svg>` : '<span class="muted small">첫 기록</span>';
+  return `<div class="history-card record-row"><span class="history-info"><strong>${escapeHtml(trend.name)}</strong><small>${kindLabel[trend.kind]} · 최근 ${trend.latest}kg</small></span>${chart}<span class="record-best"><small>최고</small><b>${trend.best}</b><small>kg</small></span></div>`;
+}
 function renderHeader() {
   const connection = document.getElementById('connection');
   connection.textContent = navigator.onLine ? '기기에 저장' : '오프라인';
@@ -92,7 +100,7 @@ function renderHome() {
     <button class="text-button quiet full" data-action="setup-new">루틴 없이 자유 운동 시작</button>`}
     <div class="section-head"><h3>최근 운동</h3><button class="text-button" data-view="history">전체 보기 ${icon('arrow')}</button></div>
     ${recent.length ? `<div class="history-list">${recent.map(sessionCard).join('')}</div>` : '<div class="empty compact"><p>첫 운동을 기록하면 여기에 쌓여요.</p></div>'}
-    <details class="help-details"><summary>홈 화면에 추가해서 더 편하게</summary><p class="hint">Safari 공유 메뉴 → 홈 화면에 추가를 선택하세요. 루틴과 기록은 이 기기에 저장됩니다. 기록 탭에서 JSON 백업을 보관할 수 있어요.</p><p class="version-label">버전 20261001-19</p></details>`;
+    <details class="help-details"><summary>홈 화면에 추가해서 더 편하게</summary><p class="hint">Safari 공유 메뉴 → 홈 화면에 추가를 선택하세요. 루틴과 기록은 이 기기에 저장됩니다. 기록 탭에서 JSON 백업을 보관할 수 있어요.</p><p class="version-label">버전 20261001-20</p></details>`;
 }
 
 function renderSetup() {
@@ -137,7 +145,9 @@ function renderHistory() {
   }
   const sessions = data.sessions.filter(item => item.exercises.some(exercise => setsFor(exercise).length));
   const total = sessions.reduce((n, session) => n + session.exercises.reduce((sum, exercise) => sum + setsFor(exercise).length, 0), 0);
+  const trends = oneRepMaxTrends(data.sessions);
   return `<section class="screen-head"><span class="eyebrow">MY JOURNAL</span><h2>쌓여가는 나의 운동</h2><p>한 세트씩, 꾸준히 남긴 기록이에요.</p>${sessions.length ? '<p class="swipe-hint">운동 기록을 왼쪽으로 밀면 삭제 버튼이 보여요.</p>' : ''}</section><div class="journal-stats"><div><b>${sessions.length}</b><span>기록한 운동</span></div><div><b>${total}</b><span>누적 세트</span></div></div>${noticeMarkup()}
+    ${trends.length ? `<div class="section-head"><h3>종목별 추정 1RM</h3><span class="muted small">${trends.length}종목</span></div><div class="history-list">${trends.slice(0, 4).map(recordRow).join('')}</div>${trends.length > 4 ? `<details class="help-details records-more"><summary>나머지 ${trends.length - 4}개 종목</summary><div class="history-list">${trends.slice(4).map(recordRow).join('')}</div></details>` : ''}<p class="hint">추정 1RM = 중량 × (1 + 횟수 ÷ 30). 같은 종목·장비끼리 비교해요.</p><div class="section-head"><h3>운동 회차</h3></div>` : ''}
     ${sessions.length ? `<div class="history-list">${sessions.map(session => sessionCard(session, { deletable: true })).join('')}</div>` : '<div class="empty"><h3>아직 기록이 없어요.</h3><p>오늘의 첫 운동부터 남겨보세요.</p><button class="button primary" data-view="home">운동하러 가기</button></div>'}
     <details class="card backup-panel"><summary>내 기록 내보내기 · 복원 · 초기화</summary><p class="hint">루틴과 기록은 이 기기에 저장됩니다. CSV는 조회용이고 JSON은 루틴까지 복원하는 백업입니다.</p><div class="backup-actions"><button class="button secondary" data-action="export-csv">CSV로 내려받기</button><button class="button secondary" data-action="export">JSON 백업 내보내기</button><button class="text-button quiet" data-action="import">JSON 백업 복원</button></div><p class="small muted">마지막 JSON 백업 시도: ${data.lastBackupAt ? dateText(data.lastBackupAt) : '없음'}</p><div class="history-reset"><p class="small muted">운동 세트 기록과 진행 중인 운동을 지웁니다. 저장된 루틴은 유지됩니다.</p><button class="button secondary danger full" data-action="clear-history" ${data.sessions.length ? '' : 'disabled'}>전체 운동 기록 삭제</button></div></details>`;
 }
@@ -170,10 +180,19 @@ function openSetDialog(setId = '') {
   document.getElementById('set-reps').focus();
 }
 
+// Checked against the data before the set is added, so the new set never competes with itself.
+function savedNotice(exercise, { weight, reps }) {
+  const record = exercise && findRecord(data.sessions, exercise, data.activeSessionId, { weight, reps });
+  return { kind: 'success', text: `${weight}kg × ${reps}회 저장됨${record ? ` · 🏆 ${exercise.name} 신기록! 추정 1RM ${record.value}kg (이전 ${record.previous}kg)` : ''}` };
+}
+
 async function saveVoiceResult(candidate, context) {
   if (data.activeSessionId !== context.sessionId || data.activeExerciseId !== context.exerciseId) throw new Error('운동이 바뀌어 음성 결과를 저장하지 않았습니다.');
-  await commit(addSet(data, context.sessionId, context.exerciseId, { id: id(), inputId: context.inputId, reps: candidate.reps, weight: candidate.weight, source: 'voice', at: new Date().toISOString() }));
-  notice = { kind: 'success', text: `${candidate.weight}kg × ${candidate.reps}회 저장됨` };
+  const next = addSet(data, context.sessionId, context.exerciseId, { id: id(), inputId: context.inputId, reps: candidate.reps, weight: candidate.weight, source: 'voice', at: new Date().toISOString() });
+  const saved = savedNotice(activeExercise(), candidate);
+  await commit(next);
+  lastCanceledSetId = null;
+  notice = saved;
   render();
 }
 
@@ -476,9 +495,12 @@ document.getElementById('set-form').addEventListener('submit', async event => {
   try {
     const setId = dialog.dataset.setId;
     const next = setId ? updateSet(data, setId, { weight, reps }) : addSet(data, data.activeSessionId, data.activeExerciseId, { id: id(), inputId: id(), weight, reps, source: 'manual', at: new Date().toISOString() });
+    // Edits are corrections, so only newly added sets can announce a record.
+    const saved = setId ? { kind: 'success', text: `${weight}kg × ${reps}회 수정됨` } : savedNotice(activeExercise(), { weight, reps });
     await commit(next);
     dialog.close();
-    notice = { kind: 'success', text: `${weight}kg × ${reps}회 ${setId ? '수정됨' : '저장됨'}` };
+    lastCanceledSetId = null;
+    notice = saved;
     render();
   } catch (error) { inlineError.textContent = error.message; inlineError.hidden = false; }
 });
