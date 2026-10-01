@@ -299,6 +299,37 @@ input::placeholder, textarea::placeholder { color: var(--text-secondary); }
 .danger-zone { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--danger-soft-border); border-radius: var(--radius-card); background: var(--danger-soft); }
 .danger-zone > div { display: grid; gap: 2px; }
 
+/* Activity grass: a picture with a text summary; levels go from light to dark blue */
+.activity-card { --cell: 15px; --cell-gap: 3px; }
+.activity-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.activity-summary dt { font-size: 14px; font-weight: 500; color: var(--text-secondary); }
+.activity-summary dd { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.heatmap { display: flex; gap: 6px; justify-content: center; }
+.heat-days, .heat-week { display: grid; grid-template-rows: 18px repeat(7, var(--cell)); gap: var(--cell-gap); }
+.heat-days span { font-size: 13px; line-height: var(--cell); color: var(--text-secondary); }
+.heat-grid { display: flex; gap: var(--cell-gap); }
+.heat-month { width: var(--cell); font-size: 13px; line-height: 18px; color: var(--text-secondary); white-space: nowrap; overflow: visible; }
+.heat-cell { display: block; width: var(--cell); height: var(--cell); border-radius: 3px; background: var(--surface-muted); box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.06); }
+.heat-cell.level-1 { background: #DBEAFE; }
+.heat-cell.level-2 { background: #93C5FD; }
+.heat-cell.level-3 { background: #3B82F6; }
+.heat-cell.level-4 { background: #1D4ED8; }
+.heat-cell.today { outline: 2px solid var(--text); outline-offset: 1px; }
+.heat-cell.future { background: none; box-shadow: none; }
+.heat-legend { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
+.heat-legend .meta:first-child { margin-right: 4px; }
+.heat-legend .meta:last-child { margin-left: 4px; }
+
+/* Weekly volume */
+.volume-headline { display: grid; gap: 2px; }
+.volume-change { display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 600; color: var(--text); }
+.volume-change .icon { color: var(--primary); }
+.volume-table .cell-volume { display: flex; align-items: center; gap: 10px; min-width: 180px; }
+.volume-table .cell-volume > span:last-child { min-width: 84px; text-align: right; font-weight: 600; }
+.volume-bar { flex: 1; height: 8px; border-radius: 999px; background: var(--surface-muted); overflow: hidden; }
+.volume-bar > span { display: block; height: 100%; border-radius: 999px; background: var(--primary); }
+.volume-table tr.current th { color: var(--primary-hover); }
+
 /* Data tables: real tables from tablet up; cards or compact rows on mobile */
 .data-table { width: 100%; border-collapse: separate; border-spacing: 0; font-variant-numeric: tabular-nums; }
 .data-table th, .data-table td { padding: 10px 12px; text-align: left; vertical-align: middle; border-bottom: 1px solid var(--border); font-size: 15px; }
@@ -349,6 +380,16 @@ input::placeholder, textarea::placeholder { color: var(--text-secondary); }
   .data-table.list-mobile td:nth-child(3) { font-weight: 700; font-size: 16px; }
   .data-table.list-mobile .cell-actions { margin-left: auto; }
   .data-table.cards-mobile .cell-actions, .data-table.list-mobile .cell-actions { width: auto; }
+  /* Weekly volume rows: week + volume on one line, days · sets below. */
+  .volume-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .volume-table, .volume-table tbody { display: block; }
+  .volume-table tr { display: grid; grid-template-columns: auto auto 1fr; gap: 4px 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .volume-table tr:last-child { border-bottom: 0; }
+  .volume-table th, .volume-table td { display: flex; align-items: center; gap: 4px; padding: 0; border: 0; }
+  .volume-table tbody th { grid-area: 1 / 1 / 2 / 3; }
+  .volume-table .cell-volume { grid-area: 1 / 3; min-width: 0; }
+  .volume-table td[data-label] { grid-row: 2; font-size: 14px; color: var(--text-secondary); }
+  .volume-table td[data-label]::before { content: attr(data-label); }
 }
 
 /* Dialogs: bottom sheet on mobile, centered from tablet up */
@@ -435,6 +476,8 @@ input::placeholder, textarea::placeholder { color: var(--text-secondary); }
   .sheet { padding: 24px; }
   .sheet-footer { bottom: -24px; margin: 0 -24px -24px; padding: 12px 24px; }
   .record-actions { grid-template-columns: 2fr 1fr; }
+  .activity-card { --cell: 18px; --cell-gap: 4px; }
+  .heatmap { justify-content: flex-start; }
   .record-actions .meta { grid-column: 1 / -1; }
 }
 

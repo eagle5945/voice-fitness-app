@@ -8,6 +8,7 @@ import { findRecord, oneRepMaxTrends, sparklinePoints } from './records.mjs';
 import { typicalRest, lastSetTime, restText } from './rest.mjs';
 import { platesFor, plateText } from './plates.mjs';
 import { icon } from './icons.mjs';
+import { activityCalendar, weeklyVolume } from './activity.mjs';
 
 const main = document.getElementById('app-main');
 const dialog = document.getElementById('set-dialog');
@@ -122,6 +123,41 @@ function sessionTable(sessions) {
 function recordTable(trends) {
   return `<table class="data-table cards-mobile record-table"><thead><tr><th scope="col">종목</th><th scope="col">장비</th><th scope="col">추이</th><th scope="col">최근</th><th scope="col">최고</th></tr></thead><tbody>${trends.map(trend => `<tr><th scope="row" data-label="종목">${escapeHtml(trend.name)}</th><td data-label="장비">${kindLabel[trend.kind]}</td><td data-label="추이" class="cell-chart">${sparkline(trend)}</td><td data-label="최근">${trend.latest}kg</td><td data-label="최고"><strong>${trend.best}kg</strong></td></tr>`).join('')}</tbody></table>`;
 }
+const kgText = value => `${new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 1 }).format(value)}kg`;
+const monthDay = key => `${Number(key.slice(5, 7))}월 ${Number(key.slice(8, 10))}일`;
+// The grid is a picture with a text summary; exact numbers live in the weekly table and cell tooltips.
+function activitySection() {
+  const calendar = activityCalendar(data.sessions);
+  const cell = day => `<span class="heat-cell level-${day.level}${day.today ? ' today' : ''}${day.future ? ' future' : ''}"${day.future ? '' : ` title="${monthDay(day.key)} · ${day.sets ? `${day.sets}세트 · ${kgText(day.volume)}` : '운동 없음'}"`}></span>`;
+  const columns = calendar.columns.map((column, index) => {
+    const first = column.find(day => day.key.endsWith('-01'));
+    const label = index === 0 ? column[0] : first;
+    return `<div class="heat-week"><span class="heat-month">${label ? `${Number(label.key.slice(5, 7))}월` : ''}</span>${column.map(cell).join('')}</div>`;
+  }).join('');
+  const levels = [0, 1, 2, 3, 4].map(level => `<span class="heat-cell level-${level}"></span>`).join('');
+  return `<section class="section" aria-labelledby="activity-title"><div class="section-head"><h2 id="activity-title" class="section-title">운동 잔디</h2><span class="meta">최근 16주</span></div>
+    <div class="card activity-card">
+      <dl class="activity-summary"><div><dt>운동한 날</dt><dd>${calendar.activeDays}<span class="unit">일</span></dd></div><div><dt>세트</dt><dd>${calendar.totalSets}</dd></div><div><dt>연속</dt><dd>${calendar.streak}<span class="unit">주</span></dd></div></dl>
+      <div class="heatmap" role="img" aria-label="최근 16주 동안 ${calendar.activeDays}일 운동, 총 ${calendar.totalSets}세트, ${calendar.streak}주 연속">
+        <div class="heat-days" aria-hidden="true"><span></span><span>월</span><span></span><span>수</span><span></span><span>금</span><span></span><span></span></div>
+        <div class="heat-grid" aria-hidden="true">${columns}</div>
+      </div>
+      <div class="heat-legend"><span class="meta">적음</span>${levels}<span class="meta">많음</span></div>
+      <p class="meta">하루 세트 수 기준: 1~5 · 6~10 · 11~15 · 16세트 이상. 연속은 한 번이라도 운동한 주를 셉니다.</p>
+    </div></section>`;
+}
+function volumeSection() {
+  const { rows, thisWeek, change } = weeklyVolume(data.sessions);
+  const max = Math.max(...rows.map(row => row.volume), 1);
+  const changeText = change === null ? '<p class="meta">지난주 같은 요일까지의 기록이 없습니다.</p>'
+    : `<p class="volume-change">${icon(change >= 0 ? 'arrow-up' : 'arrow-down', { size: 18 })}<span>지난주 같은 요일까지보다 ${Math.abs(change)}% ${change >= 0 ? '많음' : '적음'}</span></p>`;
+  return `<section class="section" aria-labelledby="volume-title"><div class="section-head"><h2 id="volume-title" class="section-title">주간 볼륨</h2><span class="meta">중량 × 횟수 합계</span></div>
+    <div class="card volume-card">
+      <div class="volume-headline"><p class="meta">이번 주</p><p class="hero-title">${kgText(thisWeek)}</p>${changeText}</div>
+      <table class="data-table volume-table"><thead><tr><th scope="col">주</th><th scope="col">운동일</th><th scope="col">세트</th><th scope="col">볼륨</th></tr></thead><tbody>${[...rows].reverse().map(row => `<tr${row.current ? ' class="current"' : ''}><th scope="row">${row.current ? '이번 주' : `${monthDay(row.start)} 주`}</th><td data-label="운동일">${row.days}일</td><td data-label="세트">${row.sets}세트</td><td class="cell-volume"><span class="volume-bar" aria-hidden="true"><span style="width: ${Math.round(row.volume / max * 100)}%"></span></span><span>${kgText(row.volume)}</span></td></tr>`).join('')}</tbody></table>
+      <p class="meta">덤벨은 한 손 중량의 2배로 계산하고, 취소한 세트는 빼고 셉니다.</p>
+    </div></section>`;
+}
 // Title defaults to the routine name (or first exercise) plus the date; the dialog lets the user edit it.
 const sessionRoutineDraft = session => session && routineDraftFromSession(session, `${session.routineName ?? session.exercises[0]?.name ?? '운동'} · ${new Intl.DateTimeFormat('ko-KR', { month: 'long', day: 'numeric' }).format(new Date(session.startedAt))}`);
 
@@ -160,7 +196,7 @@ function renderHome() {
   return `${pageHead(date, session ? '진행 중인 운동이 있습니다' : '오늘 운동', session ? '이어서 세트를 기록하세요.' : '루틴을 선택하고 운동을 시작하세요.')}
     <div class="layout-split"><div class="col-main stack">${primary}</div>
     <aside class="col-side stack" aria-label="최근 운동과 도움말"><section class="card"><div class="card-head"><h2 class="card-title">최근 운동</h2><button class="text-button" data-view="history">전체 보기 ${icon('arrow-right')}</button></div>${recent.length ? `<ul class="list">${recent.map(recentItem).join('')}</ul>` : '<p class="meta">첫 운동을 기록하면 여기에 표시됩니다.</p>'}</section>
-    <details class="card disclosure"><summary><span>홈 화면에 추가하기</span>${icon('chevron-down')}</summary><div class="disclosure-body"><p class="meta">Safari 공유 메뉴에서 ‘홈 화면에 추가’를 선택하세요. 루틴과 기록은 이 기기에 저장되며, 기록 탭에서 JSON으로 백업할 수 있습니다.</p><p class="meta version-label">버전 20261001-27</p></div></details></aside></div>`;
+    <details class="card disclosure"><summary><span>홈 화면에 추가하기</span>${icon('chevron-down')}</summary><div class="disclosure-body"><p class="meta">Safari 공유 메뉴에서 ‘홈 화면에 추가’를 선택하세요. 루틴과 기록은 이 기기에 저장되며, 기록 탭에서 JSON으로 백업할 수 있습니다.</p><p class="meta version-label">버전 20261001-28</p></div></details></aside></div>`;
 }
 
 function renderSetup() {
@@ -223,6 +259,7 @@ function renderHistory() {
   const trends = oneRepMaxTrends(data.sessions);
   return `${pageHead('기록', '운동 기록', '저장한 운동과 세트를 확인하고 관리합니다.')}
     <dl class="stat-cards"><div class="card stat"><dt>기록한 운동</dt><dd>${sessions.length}<span class="unit">회</span></dd></div><div class="card stat"><dt>누적 세트</dt><dd>${total}<span class="unit">세트</span></dd></div></dl>
+    ${sessions.length ? `${activitySection()}${volumeSection()}` : ''}
     <section class="section" aria-labelledby="sessions-title"><div class="section-head"><h2 id="sessions-title" class="section-title">운동 회차</h2></div>${sessions.length ? sessionTable(sessions) : `<div class="card empty-state"><span class="empty-icon">${icon('chart-column', { size: 28 })}</span><h3 class="card-title">아직 기록이 없습니다</h3><p class="meta">첫 운동을 기록하면 여기에 표시됩니다.</p><button class="button primary" data-view="home">${icon('dumbbell')} 운동하러 가기</button></div>`}</section>
     ${trends.length ? `<section class="section" aria-labelledby="records-title"><div class="section-head"><h2 id="records-title" class="section-title">종목별 추정 1RM</h2><span class="meta">${trends.length}종목</span></div>${recordTable(trends.slice(0, 6))}${trends.length > 6 ? `<details class="disclosure records-more"><summary><span>나머지 ${trends.length - 6}개 종목</span>${icon('chevron-down')}</summary>${recordTable(trends.slice(6))}</details>` : ''}<p class="meta">추정 1RM = 중량 × (1 + 횟수 ÷ 30). 같은 종목·장비끼리 비교합니다.</p></section>` : ''}
     <details class="card disclosure backup-panel"><summary><span>내보내기 · 복원 · 초기화</span>${icon('chevron-down')}</summary><div class="disclosure-body stack"><p class="meta">루틴과 기록은 이 기기에 저장됩니다. CSV는 조회용이고, JSON 백업으로 루틴까지 복원할 수 있습니다.</p><div class="button-wrap"><button class="button secondary" data-action="export-csv">${icon('download')} CSV 내려받기</button><button class="button secondary" data-action="export">${icon('download')} JSON 백업</button><button class="button secondary" data-action="import">${icon('upload')} JSON 복원</button></div><p class="meta">마지막 JSON 백업: ${data.lastBackupAt ? dateText(data.lastBackupAt) : '없음'}</p><div class="danger-zone"><div><p class="card-title">전체 운동 기록 삭제</p><p class="meta">운동 기록과 진행 중인 운동을 지웁니다. 저장된 루틴은 유지됩니다.</p></div><button class="button danger" data-action="clear-history" ${data.sessions.length ? '' : 'disabled'}>${icon('trash-2')} 전체 삭제</button></div></div></details>`;
