@@ -102,7 +102,7 @@ function renderHome() {
     <button class="text-button quiet full" data-action="setup-new">루틴 없이 자유 운동 시작</button>`}
     <div class="section-head"><h3>최근 운동</h3><button class="text-button" data-view="history">전체 보기 ${icon('arrow')}</button></div>
     ${recent.length ? `<div class="history-list">${recent.map(sessionCard).join('')}</div>` : '<div class="empty compact"><p>첫 운동을 기록하면 여기에 쌓여요.</p></div>'}
-    <details class="help-details"><summary>홈 화면에 추가해서 더 편하게</summary><p class="hint">Safari 공유 메뉴 → 홈 화면에 추가를 선택하세요. 루틴과 기록은 이 기기에 저장됩니다. 기록 탭에서 JSON 백업을 보관할 수 있어요.</p><p class="version-label">버전 20261001-23</p></details>`;
+    <details class="help-details"><summary>홈 화면에 추가해서 더 편하게</summary><p class="hint">Safari 공유 메뉴 → 홈 화면에 추가를 선택하세요. 루틴과 기록은 이 기기에 저장됩니다. 기록 탭에서 JSON 백업을 보관할 수 있어요.</p><p class="version-label">버전 20261001-24</p></details>`;
 }
 
 function renderSetup() {
@@ -177,6 +177,8 @@ function go(next) {
 function openSetDialog(setId = '') {
   const set = data.sessions.flatMap(item => item.exercises).flatMap(item => item.sets).find(item => item.id === setId);
   dialog.dataset.setId = set?.id ?? '';
+  // One input id per opened dialog, so addSet ignores a repeated save of the same entry.
+  dialog.dataset.inputId = id();
   document.getElementById('set-dialog-title').textContent = set ? '세트 기록 수정' : '세트 직접 입력';
   document.getElementById('set-delete').hidden = !set;
   document.getElementById('set-error').hidden = true;
@@ -479,20 +481,31 @@ document.addEventListener('submit', async event => {
   } catch (error) { report(error); }
 });
 
-document.getElementById('set-cancel').addEventListener('click', () => dialog.close());
+// A double tap must not save the same set twice while IndexedDB is still writing.
+let setSaving = false;
+function lockSetDialog(locked) {
+  setSaving = locked;
+  for (const control of dialog.querySelectorAll('button, input')) control.disabled = locked;
+}
+dialog.addEventListener('cancel', event => { if (setSaving) event.preventDefault(); });
+document.getElementById('set-cancel').addEventListener('click', () => { if (!setSaving) dialog.close(); });
 document.getElementById('set-delete').addEventListener('click', async () => {
+  if (setSaving) return;
   try {
     const setId = dialog.dataset.setId;
     if (!setId) return;
+    lockSetDialog(true);
     await commit(cancelSet(data, setId));
     dialog.close();
     lastCanceledSetId = setId;
     notice = { kind: 'info', text: '세트 기록을 취소했습니다.' };
     render();
   } catch (error) { report(error); }
+  finally { lockSetDialog(false); }
 });
 document.getElementById('set-form').addEventListener('submit', async event => {
   event.preventDefault();
+  if (setSaving) return;
   const weight = Number(document.getElementById('set-weight').value);
   const rawReps = document.getElementById('set-reps').value;
   const reps = Number(rawReps);
@@ -500,7 +513,8 @@ document.getElementById('set-form').addEventListener('submit', async event => {
   if (!rawReps || !Number.isFinite(weight) || weight < 0 || !Number.isInteger(reps) || reps < 0) { inlineError.textContent = '중량과 실제 횟수를 확인해주세요.'; inlineError.hidden = false; return; }
   try {
     const setId = dialog.dataset.setId;
-    const next = setId ? updateSet(data, setId, { weight, reps }) : addSet(data, data.activeSessionId, data.activeExerciseId, { id: id(), inputId: id(), weight, reps, source: 'manual', at: new Date().toISOString() });
+    lockSetDialog(true);
+    const next = setId ? updateSet(data, setId, { weight, reps }) : addSet(data, data.activeSessionId, data.activeExerciseId, { id: id(), inputId: dialog.dataset.inputId, weight, reps, source: 'manual', at: new Date().toISOString() });
     // Edits are corrections, so only newly added sets can announce a record.
     const saved = setId ? { kind: 'success', text: `${weight}kg × ${reps}회 수정됨` } : savedNotice(activeExercise(), { weight, reps });
     await commit(next);
@@ -509,6 +523,7 @@ document.getElementById('set-form').addEventListener('submit', async event => {
     notice = saved;
     render();
   } catch (error) { inlineError.textContent = error.message; inlineError.hidden = false; }
+  finally { lockSetDialog(false); }
 });
 
 backupInput.addEventListener('change', async () => {
