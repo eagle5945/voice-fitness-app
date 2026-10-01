@@ -24,7 +24,7 @@ python scripts/build_nas_package.py
 
 기록은 기존 IndexedDB에 저장하며 데이터 형식과 공개 주소는 유지합니다. Safari 사이트 데이터를 지우지 마세요. 기록 화면에서 JSON 파일로 백업할 수 있습니다.
 
-[NAS 배포 안내](deploy/nas/README.md). 신규 패키지는 정적 웹 서버만 사용하고 Hermes 인증정보가 필요 없습니다. 이전 Hermes STT 구현(녹음 모듈, STT 프록시, 인증 설정 스크립트)은 2026-10-01 NAS STT 컨테이너 정리와 함께 저장소에서 삭제했습니다. 필요하면 Git 기록에서 복원할 수 있으며, 설계 배경은 docs에 남아 있습니다.
+[NAS 배포 안내](deploy/nas/README.md). 신규 패키지는 정적 웹 서버만 사용하고 Hermes 인증정보가 필요 없습니다. 이전 Hermes STT 구현(녹음 모듈, STT 프록시, 인증 설정 스크립트)은 2026-10-01 NAS STT 컨테이너 정리와 함께 저장소에서 삭제했습니다. 같은 날 사용하지 않던 Python FastAPI 서버(`backend/`)와 React Native 시안(`frontend/`), 관련 API 명세·테스트 보고서도 삭제했습니다. 필요하면 Git 기록에서 복원할 수 있으며, 설계 배경은 docs에 남아 있습니다.
 
 ## CSV 내보내기
 
