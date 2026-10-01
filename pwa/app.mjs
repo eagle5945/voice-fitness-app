@@ -160,7 +160,7 @@ function renderHome() {
   return `${pageHead(date, session ? '진행 중인 운동이 있습니다' : '오늘 운동', session ? '이어서 세트를 기록하세요.' : '루틴을 선택하고 운동을 시작하세요.')}
     <div class="layout-split"><div class="col-main stack">${primary}</div>
     <aside class="col-side stack" aria-label="최근 운동과 도움말"><section class="card"><div class="card-head"><h2 class="card-title">최근 운동</h2><button class="text-button" data-view="history">전체 보기 ${icon('arrow-right')}</button></div>${recent.length ? `<ul class="list">${recent.map(recentItem).join('')}</ul>` : '<p class="meta">첫 운동을 기록하면 여기에 표시됩니다.</p>'}</section>
-    <details class="card disclosure"><summary><span>홈 화면에 추가하기</span>${icon('chevron-down')}</summary><div class="disclosure-body"><p class="meta">Safari 공유 메뉴에서 ‘홈 화면에 추가’를 선택하세요. 루틴과 기록은 이 기기에 저장되며, 기록 탭에서 JSON으로 백업할 수 있습니다.</p><p class="meta version-label">버전 20261001-26</p></div></details></aside></div>`;
+    <details class="card disclosure"><summary><span>홈 화면에 추가하기</span>${icon('chevron-down')}</summary><div class="disclosure-body"><p class="meta">Safari 공유 메뉴에서 ‘홈 화면에 추가’를 선택하세요. 루틴과 기록은 이 기기에 저장되며, 기록 탭에서 JSON으로 백업할 수 있습니다.</p><p class="meta version-label">버전 20261001-27</p></div></details></aside></div>`;
 }
 
 function renderSetup() {

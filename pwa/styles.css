@@ -38,6 +38,7 @@
   --control-height: 44px;
   --gutter: 16px;
   --nav-height: 64px;
+  --header-height: 56px;
   --sidebar-width: 232px;
   --content-max: 1440px;
   --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04);
@@ -85,11 +86,13 @@ svg.icon { flex: none; display: block; }
 
 /* Shell: bottom tab bar on mobile, fixed sidebar from tablet up */
 .app-shell { min-height: 100vh; }
-.app-body { min-height: 100vh; padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom)); }
+.app-body { min-height: 100vh; padding-top: calc(var(--header-height) + env(safe-area-inset-top)); padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom)); }
+/* Fixed and opaque, including the status-bar inset: iOS Safari treats a fixed top bar as the page's
+   top edge and extends its color, instead of blurring content that scrolls under the status bar. */
 .app-header {
-  position: sticky; top: 0; z-index: 20;
+  position: fixed; top: 0; left: 0; right: 0; z-index: 20;
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  min-height: 56px; padding: env(safe-area-inset-top) var(--gutter) 0;
+  height: calc(var(--header-height) + env(safe-area-inset-top)); padding: env(safe-area-inset-top) var(--gutter) 0;
   background: var(--surface); border-bottom: 1px solid var(--border);
 }
 .header-brand, .nav-brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; }
@@ -417,9 +420,10 @@ input::placeholder, textarea::placeholder { color: var(--text-secondary); }
   .app-nav button:hover { background: var(--surface-muted); color: var(--text); }
   .app-nav button.active { background: var(--primary-soft); color: var(--primary-hover); }
   .app-nav button.active::before { top: 10px; bottom: 10px; left: -12px; right: auto; width: 3px; height: auto; border-radius: 0 3px 3px 0; }
+  :root { --header-height: 60px; }
   .app-body { margin-left: var(--sidebar-width); padding-bottom: 0; }
   .header-brand { visibility: hidden; }
-  .app-header { min-height: 60px; }
+  .app-header { left: var(--sidebar-width); }
   .app-main { padding: 28px var(--gutter) 48px; gap: 24px; }
   .page-title { font-size: 28px; }
   .card { padding: 20px; }
