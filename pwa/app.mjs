@@ -1,4 +1,4 @@
-import { emptyData, startSession, startRoutine, chooseSessionExercise, saveRoutine, removeRoutine, selectRoutine, setExercise, addSet, updateSet, cancelSet, restoreSet, deleteSetRecord, deleteSession, clearSessionHistory, finishSession, validateBackup } from './domain.mjs';
+import { emptyData, startSession, startRoutine, chooseSessionExercise, saveRoutine, removeRoutine, selectRoutine, setExercise, addSet, updateSet, cancelSet, restoreSet, deleteSetRecord, deleteSession, clearSessionHistory, finishSession, validateBackup, routineDraftFromSession } from './domain.mjs';
 import { loadData, saveData } from './db.mjs';
 import { previewDictation, confirmDictation } from './dictation.mjs';
 import { exportWorkoutCsv } from './csv.mjs';
@@ -77,6 +77,8 @@ function recordRow(trend) {
   const chart = points.length > 1 ? `<svg class="sparkline" viewBox="0 0 84 28" width="84" height="28" role="img" aria-label="${escapeHtml(`${trend.name} 추정 1RM ${trend.points[0].value}kg에서 ${trend.latest}kg`)}"><polyline points="${points.map(point => point.join(',')).join(' ')}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${x}" cy="${y}" r="2.6" fill="currentColor"/></svg>` : '<span class="muted small">첫 기록</span>';
   return `<div class="history-card record-row"><span class="history-info"><strong>${escapeHtml(trend.name)}</strong><small>${kindLabel[trend.kind]} · 최근 ${trend.latest}kg</small></span>${chart}<span class="record-best"><small>최고</small><b>${trend.best}</b><small>kg</small></span></div>`;
 }
+// Title defaults to the routine name (or first exercise) plus the date; the dialog lets the user edit it.
+const sessionRoutineDraft = session => session && routineDraftFromSession(session, `${session.routineName ?? session.exercises[0]?.name ?? '운동'} · ${new Intl.DateTimeFormat('ko-KR', { month: 'long', day: 'numeric' }).format(new Date(session.startedAt))}`);
 function renderHeader() {
   const connection = document.getElementById('connection');
   connection.textContent = navigator.onLine ? '기기에 저장' : '오프라인';
@@ -102,7 +104,7 @@ function renderHome() {
     <button class="text-button quiet full" data-action="setup-new">루틴 없이 자유 운동 시작</button>`}
     <div class="section-head"><h3>최근 운동</h3><button class="text-button" data-view="history">전체 보기 ${icon('arrow')}</button></div>
     ${recent.length ? `<div class="history-list">${recent.map(sessionCard).join('')}</div>` : '<div class="empty compact"><p>첫 운동을 기록하면 여기에 쌓여요.</p></div>'}
-    <details class="help-details"><summary>홈 화면에 추가해서 더 편하게</summary><p class="hint">Safari 공유 메뉴 → 홈 화면에 추가를 선택하세요. 루틴과 기록은 이 기기에 저장됩니다. 기록 탭에서 JSON 백업을 보관할 수 있어요.</p><p class="version-label">버전 20261001-24</p></details>`;
+    <details class="help-details"><summary>홈 화면에 추가해서 더 편하게</summary><p class="hint">Safari 공유 메뉴 → 홈 화면에 추가를 선택하세요. 루틴과 기록은 이 기기에 저장됩니다. 기록 탭에서 JSON 백업을 보관할 수 있어요.</p><p class="version-label">버전 20261001-25</p></details>`;
 }
 
 function renderSetup() {
@@ -146,7 +148,7 @@ function renderRoutines() {
 function renderHistory() {
   const session = historySessionId && data.sessions.find(item => item.id === historySessionId);
   if (session) {
-    return `<button class="text-button back-button" data-action="history-back">← 기록 목록</button><section class="screen-head"><span class="eyebrow">${dateText(session.startedAt)}</span><h2>${escapeHtml(session.routineName ?? '운동 상세')}</h2><p>${session.endedAt ? '완료한 운동' : '진행 중인 운동'} · ${session.exercises.reduce((n, item) => n + setsFor(item).length, 0)}세트</p><p class="swipe-hint">세트 기록을 왼쪽으로 밀면 삭제 버튼이 보여요.</p><button class="text-button danger" data-action="delete-session" data-id="${escapeHtml(session.id)}">이 운동 기록 삭제</button></section>${noticeMarkup()}
+    return `<button class="text-button back-button" data-action="history-back">← 기록 목록</button><section class="screen-head"><span class="eyebrow">${dateText(session.startedAt)}</span><h2>${escapeHtml(session.routineName ?? '운동 상세')}</h2><p>${session.endedAt ? '완료한 운동' : '진행 중인 운동'} · ${session.exercises.reduce((n, item) => n + setsFor(item).length, 0)}세트</p><p class="swipe-hint">세트 기록을 왼쪽으로 밀면 삭제 버튼이 보여요.</p><button class="text-button danger" data-action="delete-session" data-id="${escapeHtml(session.id)}">이 운동 기록 삭제</button>${sessionRoutineDraft(session) ? `<button class="button secondary full" data-action="routine-from-session" data-id="${escapeHtml(session.id)}">${icon('plus')} 이 기록으로 루틴 만들기</button>` : ''}</section>${noticeMarkup()}
       ${session.exercises.map(exercise => `<section class="card history-group"><div class="section-head"><h3>${escapeHtml(exercise.name)}</h3><span class="set-badge">${setsFor(exercise).length}세트</span></div>${setsFor(exercise).map((item, index) => `<div class="swipe-row set-swipe" data-swipe-row role="group" aria-label="왼쪽으로 밀어 세트 기록 삭제"><div class="swipe-content"><div class="set-row"><span class="number">${String(index + 1).padStart(2, '0')}</span><span class="metric">${item.weight}<small>kg</small> × ${item.reps}<small>회</small></span><button class="text-button" data-action="edit-set" data-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(exercise.name)} ${index + 1}세트 수정">${icon('edit')}</button></div></div><button class="swipe-delete" data-action="delete-set-record" data-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(exercise.name)} ${index + 1}세트 기록 삭제">삭제</button></div>`).join('') || '<p class="muted small">기록한 세트가 없습니다.</p>'}</section>`).join('')}`;
   }
   const sessions = data.sessions.filter(item => item.exercises.some(exercise => setsFor(exercise).length));
@@ -281,7 +283,7 @@ function routineExerciseRow(item = {}, index = routineExerciseList.children.leng
 
 function openRoutineDialog(routine = null) {
   editingRoutineId = routine?.id ?? null;
-  document.getElementById('routine-title').textContent = routine ? '루틴 수정' : '새 운동 루틴';
+  document.getElementById('routine-title').textContent = editingRoutineId ? '루틴 수정' : '새 운동 루틴';
   routineForm.elements.title.value = routine?.title ?? '';
   routineExerciseList.innerHTML = (routine?.exercises ?? [{}]).map(routineExerciseRow).join('');
   document.getElementById('routine-error').hidden = true;
@@ -377,6 +379,7 @@ document.addEventListener('click', async event => {
     else if (action === 'choose-today-routine' || action === 'use-routine') { selectedRoutineId = button.dataset.id; await commit(selectRoutine(data, selectedRoutineId)); if (action === 'use-routine') go('home'); }
     else if (action === 'new-routine') openRoutineDialog();
     else if (action === 'edit-routine') openRoutineDialog(data.routines.find(item => item.id === button.dataset.id));
+    else if (action === 'routine-from-session') { const draft = sessionRoutineDraft(data.sessions.find(item => item.id === button.dataset.id)); if (draft) openRoutineDialog(draft); }
     else if (action === 'delete-routine') { if (window.confirm('이 루틴을 삭제할까요? 운동 기록은 삭제되지 않습니다.')) { selectedRoutineId = data.routines.find(item => item.id !== button.dataset.id)?.id ?? null; await commit(removeRoutine(data, button.dataset.id)); selectedRoutineId = data.selectedRoutineId; render(); } }
     else if (action === 'back-home') go('home');
     else if (action === 'start-routine') {

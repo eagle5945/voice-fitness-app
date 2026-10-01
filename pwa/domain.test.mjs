@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseUtterance, parseAlternatives } from './parser.mjs';
-import { emptyData, startSession, setExercise, addSet, updateSet, cancelSet, restoreSet, finishSession, deleteSetRecord, deleteSession, clearSessionHistory, validateBackup } from './domain.mjs';
+import { emptyData, startSession, setExercise, addSet, updateSet, cancelSet, restoreSet, finishSession, deleteSetRecord, deleteSession, clearSessionHistory, validateBackup, routineDraftFromSession, saveRoutine } from './domain.mjs';
 
 test('Korean voice input uses actual reps and current weight', () => {
   assert.deepEqual(parseUtterance('8개', 70), { status: 'ok', reps: 8, weight: 70 });
@@ -71,4 +71,23 @@ test('clearing workout history preserves routines but clears active workout stat
   assert.equal(cleared.activeExerciseId, null);
   assert.deepEqual(cleared.routines, data.routines);
   assert.equal(cleared.selectedRoutineId, data.selectedRoutineId);
+});
+
+test('a workout becomes a routine draft from its last valid sets', () => {
+  const set = (id, weight, reps, extra = {}) => ({ id, inputId: `in-${id}`, weight, reps, source: 'manual', at: '2026-09-30T10:00:00.000Z', updatedAt: null, canceledAt: null, ...extra });
+  const session = { id: 's', startedAt: '2026-09-30T10:00:00.000Z', endedAt: null, exercises: [
+    { id: 'a', name: '벤치프레스', kind: 'barbell', weight: 70, target: 10, sets: [set(1, 70, 10), set(2, 72.5, 9), set(3, 80, 3, { canceledAt: '2026-09-30T10:05:00.000Z' })] },
+    { id: 'b', name: '풀업', kind: 'machine', weight: 0, target: 8, sets: [set(4, 0, 8, { canceledAt: '2026-09-30T10:06:00.000Z' })] },
+    { id: 'c', name: '레그프레스', kind: 'machine', weight: 100, target: 15, sets: [set(5, 110, 15)] },
+  ] };
+  const draft = routineDraftFromSession(session, '가슴 · 9월 30일 기록으로 만든 아주 긴 루틴 이름이 사십 자를 넘으면 잘림');
+  assert.equal(draft.title.length, 40);
+  assert.deepEqual(draft.exercises, [
+    { name: '벤치프레스', kind: 'barbell', weight: 72.5, target: 10, plannedSets: 2 },
+    { name: '레그프레스', kind: 'machine', weight: 110, target: 15, plannedSets: 1 },
+  ]);
+  // The draft must be savable once the dialog assigns ids.
+  const saved = saveRoutine(emptyData(), { id: 'r', title: draft.title, exercises: draft.exercises.map((item, index) => ({ ...item, id: `r${index}` })) });
+  assert.equal(saved.routines[0].exercises.length, 2);
+  assert.equal(routineDraftFromSession({ exercises: [session.exercises[1]] }, '빈 기록'), null);
 });

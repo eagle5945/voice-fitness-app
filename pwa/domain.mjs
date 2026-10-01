@@ -50,6 +50,16 @@ export function saveRoutine(source, routine) {
   return data;
 }
 
+// A draft for the routine dialog: what was actually done, using each exercise's last valid set.
+export function routineDraftFromSession(session, title) {
+  const exercises = (session?.exercises ?? []).map(exercise => {
+    const sets = exercise.sets.filter(set => !set.canceledAt);
+    if (!sets.length) return null;
+    return { name: exercise.name, kind: exercise.kind, weight: sets.at(-1).weight, target: exercise.target, plannedSets: Math.min(sets.length, 99) };
+  }).filter(Boolean);
+  return exercises.length ? { title: title.slice(0, 40), exercises } : null;
+}
+
 export function removeRoutine(source, routineId) {
   const data = copy(source);
   data.routines = data.routines.filter(item => item.id !== routineId);
