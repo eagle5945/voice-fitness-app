@@ -20,7 +20,7 @@ Windows에서 `python scripts/build_nas_package.py`로 생성합니다. 패키�
 
 ## 확인 및 복구
 
-현재 script는 `app.mjs?v=20261002-36`, 캐시는 `voice-fitness-v43`입니다. Safari 새로고침 후 운동 화면의 ‘받아쓰기로 입력’을 확인하세요. 기존 ‘눌러서 말하기’가 보이면 앱을 완전히 닫았다가 다시 여세요. 입력창을 닫으면 저장되지 않고, 문장을 수정하면 이전 미리보기는 무효가 됩니다.
+현재 script는 `app.mjs?v=20261002-37`, 캐시는 `voice-fitness-v44`입니다. Safari 새로고침 후 운동 화면의 ‘받아쓰기로 입력’을 확인하세요. 기존 ‘눌러서 말하기’가 보이면 앱을 완전히 닫았다가 다시 여세요. 입력창을 닫으면 저장되지 않고, 문장을 수정하면 이전 미리보기는 무효가 됩니다.
 
 사이트 파일 롤백은 백업 site 파일들을 같은 위치에 복원합니다. nginx/compose까지 변경했다면 함께 복원하고 web만 재생성합니다. iPhone 기록 DB는 롤백 과정에서 지우지 않습니다.
 
@@ -117,3 +117,16 @@ Windows에서 `python scripts/build_nas_package.py`로 생성합니다. 패키�
 ## 3대 합계 · 20261002-36
 
 기록 탭에 바벨 스쿼트·벤치프레스·데드리프트 추정 1RM 합계를 추가했습니다. 변경 파일은 app.mjs, records.mjs, styles.css이며 새 파일은 없습니다. 데이터베이스 형식은 그대로이고 백업 서버는 바꾸지 않습니다.
+
+## 파일 권한 정리 · 2026-10-02
+
+보안 검토에서 ACL이 없는(Linux mode) 파일 중 누구나 쓸 수 있던 것을 정리했습니다. 앱 폴더와 `site/`는 Synology ACL(관리자·Container Manager·소유자만 쓰기, Everyone 읽기)이라 그대로 둡니다. ACL 폴더에 `chmod`를 쓰면 ACL이 사라질 수 있으니 쓰지 않습니다.
+
+- `compose.yaml`, `nginx.conf`: root 644. 인프라 변경은 root로만 합니다.
+- `README.md`, `site/`의 파일, `backup-server/`: eagle 소유 644(SSH 배포용).
+- `setup-stt-secrets.sh`: 600(정리 예정).
+- 바꾸기 전 권한은 `backups/perms-before-20261002.txt`에 있습니다.
+
+## 보안 강화 · 20261002-37
+
+nginx.conf(보안 헤더), compose.yaml(백업 컨테이너 bridge 네트워크·cap_drop), backup-server/(server.mjs, domain.mjs), 사이트 파일이 바뀝니다. 새 사이트(인라인 style 없음)를 먼저 올린 뒤 root로 nginx.conf·compose.yaml을 교체하고 `docker compose up -d backup`, `docker compose up -d --force-recreate web` 순서로 적용합니다. CSP를 먼저 적용하면 이전 앱의 막대 폭이 표시되지 않습니다(기능에는 영향 없음).

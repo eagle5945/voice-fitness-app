@@ -146,3 +146,13 @@ test('rebuilds a missing index from the backup files', async () => {
     assert.equal(list[0].sets, 3);
   });
 });
+
+test('ids in a tampered index are never used as paths', async () => {
+  await withServer({ keep: 1 }, async ({ base, dir }) => {
+    await put(base, backup(3));
+    await writeFile(join(dir, 'index.json'), JSON.stringify([{ id: '../../app/server', sets: 99 }, { id: 'nope' }]));
+    assert.deepEqual(await (await fetch(base, { headers: auth })).json(), []);
+    assert.equal((await put(base, backup(4))).status, 201);
+    assert.equal((await fetch(base, { headers: auth }).then(r => r.json())).length, 1);
+  });
+});

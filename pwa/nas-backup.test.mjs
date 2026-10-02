@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sha256Hex, shouldSend, sendBackup, listBackups, fetchBackup, errorText, ENDPOINT } from './nas-backup.mjs';
+import { sha256Hex, shouldSend, sendBackup, listBackups, fetchBackup, errorText, ENDPOINT, backupList } from './nas-backup.mjs';
 
 const reply = (status, body) => async () => new Response(body === undefined ? '' : typeof body === 'string' ? body : JSON.stringify(body), { status });
 
@@ -58,4 +58,10 @@ test('errorText explains each failure', () => {
   assert.equal(errorText({ status: 'missing' }), 'NAS 백업 서버가 꺼져 있습니다.');
   assert.equal(errorText({ status: 'invalid', body: { error: '형식 오류' } }), '형식 오류');
   assert.equal(errorText({ status: 'error', code: 500 }), 'NAS 백업에 실패했습니다(500).');
+});
+
+test('backupList keeps only well-formed entries and numeric counts', () => {
+  const good = { id: '20261002T050607Z-abcdef012345', savedAt: '2026-10-02T05:06:07.000Z', routines: 2, sets: '<img src=x onerror=1>', extra: 'x' };
+  assert.deepEqual(backupList([good, { ...good, id: '../index' }, { ...good, savedAt: 'nope' }, null]), [{ id: good.id, savedAt: good.savedAt, routines: 2, sets: 0 }]);
+  assert.deepEqual(backupList({ not: 'a list' }), []);
 });

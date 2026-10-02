@@ -51,3 +51,10 @@ export function errorText(result) {
   if (result.status === 'invalid') return result.body?.error ?? '백업 형식이 올바르지 않습니다.';
   return `NAS 백업에 실패했습니다(${result.code ?? '알 수 없음'}).`;
 }
+
+// Server data is shaped before it reaches HTML: ids must match the backup id pattern, dates must parse, counts become numbers.
+export function backupList(body) {
+  return (Array.isArray(body) ? body : [])
+    .filter(item => /^\d{8}T\d{6}Z-[0-9a-f]{12}$/.test(item?.id) && !Number.isNaN(Date.parse(item.savedAt)))
+    .map(item => ({ id: item.id, savedAt: item.savedAt, routines: Number(item.routines) || 0, sets: Number(item.sets) || 0 }));
+}

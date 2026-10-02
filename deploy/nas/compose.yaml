@@ -18,12 +18,16 @@ services:
     image: node:22-alpine
     container_name: voice-fitness-backup
     restart: unless-stopped
-    network_mode: host
+    # Own bridge network instead of the host network: the server cannot reach services on the NAS's localhost.
+    # nginx (host network) still reaches it through the port published on 127.0.0.1 only.
+    ports:
+      - "127.0.0.1:18086:18086"
     # Owner of the backup files; set BACKUP_UID and BACKUP_GID in .env next to this file.
     user: "${BACKUP_UID:?set BACKUP_UID in .env}:${BACKUP_GID:?set BACKUP_GID in .env}"
     command: ["node", "/app/server.mjs"]
     environment:
       BACKUP_PORT: "18086"
+      BACKUP_HOST: 0.0.0.0
       BACKUP_DIR: /data
       BACKUP_TOKEN_FILE: /run/secrets/backup-token
       BACKUP_KEEP: "60"
@@ -32,5 +36,7 @@ services:
       - ./auto-backups:/data
       - ./secrets/backup-token:/run/secrets/backup-token:ro
     read_only: true
+    cap_drop:
+      - ALL
     security_opt:
       - no-new-privileges:true

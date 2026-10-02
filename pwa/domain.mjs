@@ -9,6 +9,8 @@ const findExercise = (session, id) => session.exercises.find(item => item.id ===
 const validWeight = value => Number.isFinite(value) && value >= 0 && value <= 2000;
 const validReps = value => Number.isInteger(value) && value >= 0 && value <= 999;
 const validDate = value => typeof value === 'string' && !Number.isNaN(Date.parse(value));
+// Session labels copied from a routine: absent, or a short string. Limits are generous so older records still load.
+const optionalText = value => value == null || (typeof value === 'string' && value.length <= 100);
 
 export function startSession(source, id, startedAt) {
   const data = copy(source);
@@ -198,10 +200,10 @@ export function validateBackup(input) {
     ids.add(id);
   };
   for (const session of data.sessions) {
-    if (!session || !Array.isArray(session.exercises) || !validDate(session.startedAt) || (session.endedAt != null && !validDate(session.endedAt))) throw new Error('운동일지 형식이 올바르지 않습니다.');
+    if (!session || !Array.isArray(session.exercises) || !validDate(session.startedAt) || (session.endedAt != null && !validDate(session.endedAt)) || !optionalText(session.routineName) || !optionalText(session.routineId)) throw new Error('운동일지 형식이 올바르지 않습니다.');
     register(session.id);
     for (const exercise of session.exercises) {
-      if (!exercise || !Array.isArray(exercise.sets) || typeof exercise.name !== 'string' || !exercise.name.trim() || !['barbell', 'dumbbell', 'machine'].includes(exercise.kind) || !validWeight(exercise.weight) || !validReps(exercise.target) || exercise.target < 1 || (exercise.plannedSets != null && (!Number.isInteger(exercise.plannedSets) || exercise.plannedSets < 1 || exercise.plannedSets > 99))) throw new Error('운동 항목 형식이 올바르지 않습니다.');
+      if (!exercise || !Array.isArray(exercise.sets) || typeof exercise.name !== 'string' || !exercise.name.trim() || exercise.name.length > 200 || !['barbell', 'dumbbell', 'machine'].includes(exercise.kind) || !validWeight(exercise.weight) || !validReps(exercise.target) || exercise.target < 1 || (exercise.plannedSets != null && (!Number.isInteger(exercise.plannedSets) || exercise.plannedSets < 1 || exercise.plannedSets > 99))) throw new Error('운동 항목 형식이 올바르지 않습니다.');
       register(exercise.id);
       for (const set of exercise.sets) {
         if (!set || !validWeight(set.weight) || !validReps(set.reps) || !validDate(set.at) || (set.updatedAt != null && !validDate(set.updatedAt)) || (set.canceledAt != null && !validDate(set.canceledAt)) || !['voice', 'manual'].includes(set.source) || typeof set.inputId !== 'string' || !set.inputId || inputIds.has(set.inputId)) throw new Error('세트 형식이 올바르지 않습니다.');

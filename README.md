@@ -190,3 +190,11 @@ python scripts/build_nas_package.py
 - 실제로 1회 든 무게가 아니라 세트 기록으로 계산한 추정값입니다.
 
 변경 파일은 app.mjs, records.mjs, styles.css이며 새 파일은 없습니다. 저장 형식은 그대로입니다.
+
+## 보안 강화 · 20261002-37
+
+- nginx에 Content-Security-Policy(같은 출처만 허용, 인라인 스크립트·스타일 금지, 프레임 금지)와 Referrer-Policy, Permissions-Policy, HSTS 등을 추가했습니다. 이를 위해 막대 폭을 인라인 style 대신 DOM으로 지정합니다.
+- 백업 파일 검사를 강화하고(회차의 루틴 이름 타입, 운동 이름 길이), NAS 복원 목록은 서버 값을 검사·숫자 변환한 뒤 보여줍니다.
+- 백업 서버는 캐시 파일의 id를 다시 검사하고, 백업 컨테이너는 자체 bridge 네트워크와 `cap_drop: ALL`로 실행합니다.
+
+자세한 내용은 `docs/security-hardening-20261002-37.md`에 있습니다. 저장 형식은 그대로입니다.

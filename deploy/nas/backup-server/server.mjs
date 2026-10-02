@@ -35,7 +35,8 @@ async function readBody(request) {
 async function loadIndex(dir) {
   try {
     const entries = JSON.parse(await readFile(join(dir, INDEX), 'utf8'));
-    if (Array.isArray(entries)) return entries;
+    // Ids from the cache are used in file paths (read and delete), so only well-formed ones are kept.
+    if (Array.isArray(entries)) return entries.filter(entry => ID_PATTERN.test(entry?.id));
   } catch { /* rebuilt below */ }
   const names = (await readdir(dir)).filter(name => ID_PATTERN.test(name.replace(/\.json$/, '')) && name.endsWith('.json')).sort().reverse();
   const entries = [];
@@ -121,11 +122,13 @@ export function createBackupHandler({ dir, token, keep = 60, now = () => new Dat
 async function main() {
   const dir = process.env.BACKUP_DIR ?? '/data';
   const port = Number(process.env.BACKUP_PORT ?? 18086);
+  // 0.0.0.0 only inside its own container network; the host publishes the port on 127.0.0.1.
+  const host = process.env.BACKUP_HOST ?? '127.0.0.1';
   const keep = Number(process.env.BACKUP_KEEP ?? 60);
   const token = (await readFile(process.env.BACKUP_TOKEN_FILE ?? '/run/secrets/backup-token', 'utf8')).trim();
   if (token.length < 32) throw new Error('backup token must be at least 32 characters');
   const log = line => console.log(`${new Date().toISOString()} ${line}`);
-  createServer(createBackupHandler({ dir, token, keep, log })).listen(port, '127.0.0.1', () => log(`listening 127.0.0.1:${port}`));
+  createServer(createBackupHandler({ dir, token, keep, log })).listen(port, host, () => log(`listening ${host}:${port}`));
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) main().catch(error => { console.error(error.message); process.exit(1); });

@@ -112,3 +112,11 @@ test('backups validate exercise parts and default them for older files', () => {
   }
   assert.deepEqual(validateBackup({ ...old, exerciseParts: null }).exerciseParts, {});
 });
+
+test('backups reject non-text session labels and oversized exercise names', () => {
+  const session = (extra = {}, name = '스쿼트') => ({ version: 1, routines: [], sessions: [{ id: 's', startedAt: '2026-10-01T00:00:00Z', exercises: [{ id: 'e', name, kind: 'barbell', weight: 60, target: 5, sets: [] }], ...extra }] });
+  assert.equal(validateBackup(session({ routineName: '하체', routineId: 'r1' })).sessions[0].routineName, '하체');
+  assert.equal(validateBackup(session({ routineName: null })).sessions.length, 1);
+  for (const bad of [{ routineName: { html: '<b>' } }, { routineId: 5 }, { routineName: 'x'.repeat(101) }]) assert.throws(() => validateBackup(session(bad)), /운동일지/);
+  assert.throws(() => validateBackup(session({}, 'x'.repeat(201))), /운동 항목/);
+});

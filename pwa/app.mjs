@@ -10,7 +10,7 @@ import { platesFor, plateText } from './plates.mjs';
 import { icon } from './icons.mjs';
 import { activityCalendar, weeklyVolume, weeklyReport, reportSentence } from './activity.mjs';
 import { BODY_PARTS, bodyPartSummary } from './body-parts.mjs';
-import { sha256Hex, shouldSend, sendBackup, listBackups, fetchBackup, errorText } from './nas-backup.mjs';
+import { sha256Hex, shouldSend, sendBackup, listBackups, fetchBackup, errorText, backupList } from './nas-backup.mjs';
 
 const main = document.getElementById('app-main');
 const dialog = document.getElementById('set-dialog');
@@ -192,7 +192,7 @@ function partSection() {
   const ordered = [...pending, ...names.filter(item => item.part)];
   return `<section class="section" aria-labelledby="parts-title"><div class="section-head"><h2 id="parts-title" class="section-title">부위별 현황</h2>${infoToggle('부위별 현황 기준', '세트 수는 오늘까지 최근 7일 동안 기록한 세트입니다. 각 종목은 주된 부위 하나에만 셉니다. 회복 상태는 이 앱의 기준으로, 그 부위의 마지막 세트 후 48시간 미만이면 회복 중, 7일 미만이면 준비됨, 그 이상이면 오래 쉼입니다. 종목 부위는 이름으로 추정하며, 종목 분류에서 바꿀 수 있습니다.')}</div>
     <div class="card">
-      <ul class="part-rows">${rows.map(row => `<li><div class="part-main"><strong>${row.part}</strong><span class="meta">${row.lastAt ? hoursAgoText(row.hours, row.lastAt) : '기록 없음'}</span></div><div class="part-sets"><span class="volume-bar" aria-hidden="true"><span style="width: ${Math.round(row.sets / max * 100)}%"></span></span><span>${row.sets}세트</span></div>${recoveryBadge[row.status] ? badge(...recoveryBadge[row.status]) : '<span></span>'}</li>`).join('')}</ul>
+      <ul class="part-rows">${rows.map(row => `<li><div class="part-main"><strong>${row.part}</strong><span class="meta">${row.lastAt ? hoursAgoText(row.hours, row.lastAt) : '기록 없음'}</span></div><div class="part-sets"><span class="volume-bar" aria-hidden="true"><span data-bar="${Math.round(row.sets / max * 100)}"></span></span><span>${row.sets}세트</span></div>${recoveryBadge[row.status] ? badge(...recoveryBadge[row.status]) : '<span></span>'}</li>`).join('')}</ul>
       ${unclassified.sets ? `<p class="meta">분류 안 된 종목 ${unclassified.names.length}개 · 최근 7일 ${unclassified.sets}세트는 위 표에 들어가지 않았습니다.</p>` : ''}
       ${names.length ? `<details class="disclosure part-editor" ${partEditorOpen ? 'open' : ''}><summary><span>종목 분류${pending.length ? ` <span class="meta">${pending.length}개 미분류</span>` : ''}</span>${icon('chevron-down')}</summary><ul class="part-list disclosure-body">${ordered.map(item => `<li><label class="part-field"><span>${escapeHtml(item.name)}</span><select data-part-name="${escapeHtml(item.name)}"><option value="">자동 · ${item.guess ?? '분류 안 됨'}</option>${BODY_PARTS.map(part => `<option value="${part}" ${item.chosen && item.part === part ? 'selected' : ''}>${part}</option>`).join('')}</select></label></li>`).join('')}</ul></details>` : ''}
     </div></section>`;
@@ -216,7 +216,7 @@ function volumeSection() {
   return `<section class="section" aria-labelledby="volume-title"><div class="section-head"><h2 id="volume-title" class="section-title">주간 볼륨</h2>${infoToggle('주간 볼륨 계산 방법', '볼륨은 중량 × 횟수의 합계입니다. 덤벨은 한 손 중량의 2배로 계산하고, 취소한 세트는 뺍니다.')}</div>
     <div class="card volume-card">
       <div class="volume-headline"><p class="meta">이번 주</p><p class="hero-title">${kgText(thisWeek)}</p>${changeText}</div>
-      <table class="data-table volume-table"><thead><tr><th scope="col">주</th><th scope="col">운동일</th><th scope="col">세트</th><th scope="col">볼륨</th></tr></thead><tbody>${[...rows].reverse().map(row => `<tr${row.current ? ' class="current"' : ''}><th scope="row">${row.current ? '이번 주' : `${monthDay(row.start)} 주`}</th><td data-label="운동일">${row.days}일</td><td data-label="세트">${row.sets}세트</td><td class="cell-volume"><span class="volume-bar" aria-hidden="true"><span style="width: ${Math.round(row.volume / max * 100)}%"></span></span><span>${kgText(row.volume)}</span></td></tr>`).join('')}</tbody></table>
+      <table class="data-table volume-table"><thead><tr><th scope="col">주</th><th scope="col">운동일</th><th scope="col">세트</th><th scope="col">볼륨</th></tr></thead><tbody>${[...rows].reverse().map(row => `<tr${row.current ? ' class="current"' : ''}><th scope="row">${row.current ? '이번 주' : `${monthDay(row.start)} 주`}</th><td data-label="운동일">${row.days}일</td><td data-label="세트">${row.sets}세트</td><td class="cell-volume"><span class="volume-bar" aria-hidden="true"><span data-bar="${Math.round(row.volume / max * 100)}"></span></span><span>${kgText(row.volume)}</span></td></tr>`).join('')}</tbody></table>
     </div></section>`;
 }
 // Title defaults to the routine name (or first exercise) plus the date; the dialog lets the user edit it.
@@ -262,7 +262,7 @@ function renderHome() {
   return `${pageHead(date, session ? '진행 중인 운동이 있습니다' : '오늘 운동')}
     <div class="layout-split"><div class="col-main stack">${primary}</div>
     <aside class="col-side stack" aria-label="최근 운동과 도움말"><section class="card"><div class="card-head"><h2 class="card-title">최근 운동</h2><button class="icon-button" data-view="history" aria-label="최근 운동 전체 보기">${icon('arrow-right')}</button></div>${recent.length ? `<ul class="list">${recent.map(recentItem).join('')}</ul>` : '<p class="meta">첫 운동을 기록하면 여기에 표시됩니다.</p>'}</section>
-    <details class="card disclosure"><summary><span>홈 화면에 추가하기</span>${icon('chevron-down')}</summary><div class="disclosure-body"><p class="meta">Safari 공유 메뉴에서 ‘홈 화면에 추가’를 선택하세요. 루틴과 기록은 이 기기에 저장되며, 기록 탭에서 JSON으로 백업할 수 있습니다.</p><p class="meta version-label">버전 20261002-36</p></div></details></aside></div>`;
+    <details class="card disclosure"><summary><span>홈 화면에 추가하기</span>${icon('chevron-down')}</summary><div class="disclosure-body"><p class="meta">Safari 공유 메뉴에서 ‘홈 화면에 추가’를 선택하세요. 루틴과 기록은 이 기기에 저장되며, 기록 탭에서 JSON으로 백업할 수 있습니다.</p><p class="meta version-label">버전 20261002-37</p></div></details></aside></div>`;
 }
 
 function renderSetup() {
@@ -422,6 +422,8 @@ function render() {
   if (fatalError) { main.innerHTML = `<section class="card callout callout-danger" role="alert"><div class="callout-head"><span class="callout-icon">${icon('triangle-alert')}</span><div><p class="card-title">저장된 기록을 읽지 못했습니다</p><p class="meta">${escapeHtml(fatalError.message)}</p></div></div></section>`; return; }
   main.dataset.view = view;
   main.innerHTML = view === 'setup' ? renderSetup() : view === 'active' ? renderActive() : view === 'history' ? renderHistory() : view === 'routines' ? renderRoutines() : renderHome();
+  // Bar widths are set through the DOM, because the Content-Security-Policy blocks inline style attributes.
+  for (const bar of main.querySelectorAll('[data-bar]')) bar.style.width = `${bar.dataset.bar}%`;
 }
 
 function go(next) {
@@ -708,8 +710,9 @@ document.addEventListener('click', async event => {
       if (result.status !== 'ok') throw new Error(errorText(result));
       // After a reinstall the device is empty: offer the NAS backups instead of trying to overwrite them.
       const empty = !data.routines.length && !data.sessions.some(session => sessionSetCount(session));
-      if (empty && result.body.length) {
-        nasList = result.body;
+      const backups = backupList(result.body);
+      if (empty && backups.length) {
+        nasList = backups;
         await updateNas({ token, lastHash: null, lastError: null, declinedHash: null });
         toast({ kind: 'info', text: 'NAS에 백업이 있습니다. 복원할 백업을 고르세요.' });
         return;
@@ -722,7 +725,7 @@ document.addEventListener('click', async event => {
     else if (action === 'nas-list') {
       const result = await listBackups(nas.token);
       if (result.status !== 'ok') throw new Error(errorText(result));
-      nasList = result.body;
+      nasList = backupList(result.body);
       renderNasPanel();
     }
     else if (action === 'nas-list-close') { nasList = null; renderNasPanel(); }
