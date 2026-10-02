@@ -263,7 +263,7 @@ function renderHome() {
   return `${pageHead(date, session ? '진행 중인 운동이 있습니다' : '오늘 운동')}
     <div class="layout-split"><div class="col-main stack">${primary}</div>
     <aside class="col-side stack" aria-label="최근 운동과 도움말"><section class="card"><div class="card-head"><h2 class="card-title">최근 운동</h2><button class="icon-button" data-view="history" aria-label="최근 운동 전체 보기">${icon('arrow-right')}</button></div>${recent.length ? `<ul class="list">${recent.map(recentItem).join('')}</ul>` : '<p class="meta">첫 운동을 기록하면 여기에 표시됩니다.</p>'}</section>
-    <details class="card disclosure"><summary><span>홈 화면에 추가하기</span>${icon('chevron-down')}</summary><div class="disclosure-body"><p class="meta">Safari 공유 메뉴에서 ‘홈 화면에 추가’를 선택하세요. 루틴과 기록은 이 기기에 저장되며, 기록 탭에서 JSON으로 백업할 수 있습니다.</p><p class="meta version-label">버전 20261002-38</p></div></details></aside></div>`;
+    <details class="card disclosure"><summary><span>홈 화면에 추가하기</span>${icon('chevron-down')}</summary><div class="disclosure-body"><p class="meta">Safari 공유 메뉴에서 ‘홈 화면에 추가’를 선택하세요. 루틴과 기록은 이 기기에 저장되며, 기록 탭에서 JSON으로 백업할 수 있습니다.</p><p class="meta version-label">버전 20261002-39</p></div></details></aside></div>`;
 }
 
 function renderSetup() {
@@ -554,9 +554,12 @@ function renderRecommend() {
   const head = (eyebrow, title) => `<div class="card-head"><div class="sheet-heading"><p class="eyebrow">${eyebrow}</p><h2 id="recommend-title" class="dialog-title">${title}</h2></div>${close}</div>`;
   if (step < QUESTIONS.length) {
     const question = QUESTIONS[step];
+    const picked = value => (question.multi ? (answers[question.key] ?? []).includes(value) : answers[question.key] === value);
+    const next = question.multi ? `<button type="button" class="button primary" data-action="recommend-next" ${(answers[question.key] ?? []).length ? '' : 'disabled'}>다음 ${icon('arrow-right')}</button>` : '';
     recommendBody.innerHTML = `${head(`추천 루틴 · ${step + 1}/${total}`, question.title)}${progress(step, total, '질문 진행')}
-      <div class="choice-list" role="group" aria-label="${question.title}">${question.options.map(([value, label, hint]) => { const on = answers[question.key] === value; return `<button type="button" class="choice ${on ? 'selected' : ''}" aria-pressed="${on}" data-action="recommend-answer" data-key="${question.key}" data-value="${value}"><strong>${label}</strong>${hint ? `<span class="meta">${hint}</span>` : ''}${on ? icon('check') : ''}</button>`; }).join('')}</div>
-      ${back ? `<div class="button-row">${back}</div>` : ''}`;
+      ${question.hint ? `<p class="meta">${question.hint}</p>` : ''}
+      <div class="choice-list ${question.multi ? 'choice-grid' : ''}" role="group" aria-label="${question.title}">${question.options.map(([value, label, hint]) => { const on = picked(value); return `<button type="button" class="choice ${on ? 'selected' : ''}" aria-pressed="${on}" data-action="${question.multi ? 'recommend-toggle' : 'recommend-answer'}" data-key="${question.key}" data-value="${value}"><strong>${label}</strong>${hint ? `<span class="meta">${hint}</span>` : ''}${on ? icon('check') : ''}</button>`; }).join('')}</div>
+      ${back || next ? `<div class="button-row">${back}${next}</div>` : ''}`;
   } else if (step === QUESTIONS.length) {
     recommendBody.innerHTML = `${head(`추천 루틴 · ${total}/${total} · 선택`, '5회 할 수 있는 무게를 아나요?')}${progress(step, total, '질문 진행')}
       <p class="meta">시작 중량을 맞추는 데 씁니다. 모르면 건너뛰세요. 가볍게 시작해 자동 증량 코치가 올려 줍니다.</p>
@@ -569,13 +572,18 @@ function renderRecommend() {
     const other = recommendState.alternative ? result.primary : result.alternative;
     const loadNote = Object.keys(lifts).length ? '입력한 5회 중량을 기준으로 목표 횟수에 맞게 낮춰 시작합니다.' : '가볍게 시작합니다. 계획 세트를 모두 채우면 자동 증량 코치가 다음 중량을 제안합니다.';
     recommendBody.innerHTML = `${head(recommendState.alternative ? '다른 추천' : '추천 결과', program.name)}
-      <div class="recommend-reason"><span class="meta">${result.reason}</span>${infoToggle('추천 기준', '처음이거나 주 2회면 전신 기초, 주 3회는 근력이면 5×5 A/B·그 외 전신 A/B, 주 4회는 상·하체 분할, 주 5회 이상은 PPL 3분할을 추천합니다. 목표에 따라 근력 5회×5세트, 근비대 8~12회, 건강·체력 12~15회로, 시간에 따라 하루 4~6종목으로 맞춥니다. 이 앱이 정한 기준이며 의학적 조언이 아닙니다. 통증이 있으면 멈추고 전문가와 상담하세요.')}</div>
+      <div class="recommend-reason"><ul class="recommend-reasons">${program.reasons.map(reason => `<li>${escapeHtml(reason)}</li>`).join('')}</ul>${infoToggle('추천 기준', '경험·주 횟수·목표·선호 방식으로 프로그램(전신, 5×5, 상·하체, PPL, 4·5분할)을 고르고, 하루를 스쿼트·힙힌지·밀기·당기기 같은 동작 순서로 채웁니다. 장비와 불편한 관절, 경험에 맞지 않는 종목은 빼고 A·B일에는 다른 변형을 씁니다. 집중 부위는 그 부위를 하는 날 종목을 더하고 세트를 1개 늘립니다. 이 앱이 정한 기준이며 의학적 조언이 아닙니다. 통증이 있으면 멈추고 전문가와 상담하세요.')}</div>
+      ${(answers.pain ?? []).some(item => item !== 'none') ? `<p class="notice warning">불편한 관절에 부담이 큰 종목을 뺐지만, 운동 중 통증이 생기면 바로 멈추고 전문가와 상담하세요.</p>` : ''}
       <p class="meta">${loadNote} 추가한 뒤에는 루틴 탭에서 자유롭게 고칠 수 있습니다.</p>
       ${program.routines.map(routine => `<div class="plan-head"><p class="card-title">${escapeHtml(routine.title)}</p><span class="meta">${routine.exercises.length}개 종목 · ${planSets(routine)}세트</span></div>${planPreview(routine)}`).join('')}
       <div class="button-row sheet-footer"><button type="button" class="button secondary" data-action="recommend-other" aria-label="다른 추천 보기: ${escapeHtml(other.name)}">${recommendState.alternative ? '처음 추천 보기' : '다른 추천 보기'}</button><button type="button" class="button primary" data-action="recommend-add">${icon('plus')} 이 루틴으로 시작</button></div>
       <button type="button" class="text-button" data-action="recommend-restart">${icon('rotate-ccw')} 다시 답하기</button>`;
   }
   recommendBody.querySelector('.choice.selected, .choice, input, [data-action="recommend-add"]')?.focus();
+}
+
+function focusRecommendChoice(value) {
+  [...recommendBody.querySelectorAll('.choice')].find(item => item.dataset.value === value)?.focus();
 }
 
 async function handleRecommend(action, button) {
@@ -585,6 +593,17 @@ async function handleRecommend(action, button) {
   if (action === 'recommend-close') { recommendDialog.close(); return; }
   if (action === 'recommend-answer') {
     state.answers[button.dataset.key] = button.dataset.value;
+    state.step += 1;
+    if (state.step === QUESTIONS.length && !askLifts(state.answers)) { state.lifts = {}; state.step = RESULT_STEP; }
+  } else if (action === 'recommend-toggle') {
+    const question = QUESTIONS.find(item => item.key === button.dataset.key);
+    const value = button.dataset.value;
+    const current = state.answers[question.key] ?? [];
+    // The exclusive choice (고르게, 없음) clears the others, and any other choice clears it.
+    state.answers[question.key] = value === question.exclusive ? [value]
+      : current.includes(value) ? current.filter(item => item !== value) : [...current.filter(item => item !== question.exclusive), value];
+  } else if (action === 'recommend-next') {
+    if (!(state.answers[QUESTIONS[state.step].key] ?? []).length) return;
     state.step += 1;
     if (state.step === QUESTIONS.length && !askLifts(state.answers)) { state.lifts = {}; state.step = RESULT_STEP; }
   } else if (action === 'recommend-back') {
@@ -629,6 +648,8 @@ async function handleRecommend(action, button) {
     return;
   }
   renderRecommend();
+  // A toggled option keeps focus, so several answers can be picked without hunting for the cursor.
+  if (action === 'recommend-toggle') focusRecommendChoice(button.dataset.value);
 }
 recommendDialog.addEventListener('close', () => { recommendState = null; });
 
