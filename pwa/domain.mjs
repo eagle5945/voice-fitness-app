@@ -1,4 +1,7 @@
-export const emptyData = () => ({ version: 1, routines: [], sessions: [], activeSessionId: null, activeExerciseId: null, lastBackupAt: null, selectedRoutineId: null });
+export const emptyData = () => ({ version: 1, routines: [], sessions: [], activeSessionId: null, activeExerciseId: null, lastBackupAt: null, selectedRoutineId: null, exerciseParts: {} });
+
+// Body parts for the history tab. Kept here (not in body-parts.mjs) so the NAS backup server can validate with this file alone.
+export const BODY_PARTS = ['가슴', '등', '어깨', '하체', '팔', '코어'];
 
 const copy = data => structuredClone(data);
 const findSession = (data, id) => data.sessions.find(item => item.id === id);
@@ -47,6 +50,17 @@ export function saveRoutine(source, routine) {
   const index = data.routines.findIndex(item => item.id === routine.id);
   if (index < 0) data.routines.push(saved); else data.routines[index] = saved;
   data.selectedRoutineId = saved.id;
+  return data;
+}
+
+// Only the user's own choices are stored, keyed by exercise name; everything else is guessed when shown.
+export function setExercisePart(source, name, part) {
+  const key = String(name ?? '').trim();
+  if (!key || key.length > 60 || (part != null && !BODY_PARTS.includes(part))) throw new Error('운동 부위를 확인해주세요.');
+  const data = copy(source);
+  const parts = { ...(data.exerciseParts ?? {}) };
+  if (part == null) delete parts[key]; else parts[key] = part;
+  data.exerciseParts = parts;
   return data;
 }
 
@@ -162,8 +176,11 @@ export function finishSession(source, sessionId, endedAt) {
 
 export function validateBackup(input) {
   if (!input || typeof input !== 'object' || input.version !== 1 || !Array.isArray(input.sessions)) throw new Error('지원하지 않는 기록 파일입니다.');
-  const data = { ...emptyData(), ...input, routines: input.routines ?? [] };
+  const data = { ...emptyData(), ...input, routines: input.routines ?? [], exerciseParts: input.exerciseParts ?? {} };
   if (!Array.isArray(data.routines)) throw new Error('운동 루틴 형식이 올바르지 않습니다.');
+  const parts = data.exerciseParts;
+  if (typeof parts !== 'object' || Array.isArray(parts) || Object.getPrototypeOf(parts) !== Object.prototype
+    || Object.entries(parts).some(([name, part]) => !name.trim() || name !== name.trim() || name.length > 60 || !BODY_PARTS.includes(part))) throw new Error('운동 부위 형식이 올바르지 않습니다.');
   const routineIds = new Set();
   for (const routine of data.routines) {
     if (!routine || typeof routine.id !== 'string' || !routine.id || routineIds.has(routine.id) || typeof routine.title !== 'string' || !routine.title.trim() || routine.title.length > 40 || !Array.isArray(routine.exercises) || !routine.exercises.length) throw new Error('운동 루틴 형식이 올바르지 않습니다.');

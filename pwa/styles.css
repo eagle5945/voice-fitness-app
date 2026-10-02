@@ -364,6 +364,16 @@ input::placeholder, textarea::placeholder { color: var(--text-secondary); }
 .volume-change .icon { color: var(--primary); }
 .volume-table .cell-volume { display: flex; align-items: center; gap: 10px; min-width: 180px; }
 .volume-table .cell-volume > span:last-child { min-width: 84px; text-align: right; font-weight: 600; }
+/* Body parts: name and last set, a set-count bar, and a recovery badge with text */
+.part-rows { display: grid; }
+.part-rows li { display: grid; grid-template-columns: minmax(72px, auto) 1fr auto; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.part-rows li:last-child { border-bottom: 0; }
+.part-main { display: grid; gap: 2px; }
+.part-sets { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.part-list { display: grid; gap: 8px; }
+.part-field { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.part-field > span { min-width: 0; overflow-wrap: anywhere; }
+.part-field select { flex: none; width: 150px; }
 .volume-bar { flex: 1; height: 8px; border-radius: 999px; background: var(--surface-muted); overflow: hidden; }
 .volume-bar > span { display: block; height: 100%; border-radius: 999px; background: var(--primary); }
 .volume-table tr.current th { color: var(--primary-hover); }

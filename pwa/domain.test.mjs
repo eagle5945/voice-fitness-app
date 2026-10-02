@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseUtterance, parseAlternatives } from './parser.mjs';
-import { emptyData, startSession, setExercise, addSet, updateSet, cancelSet, restoreSet, finishSession, deleteSetRecord, deleteSession, clearSessionHistory, validateBackup, routineDraftFromSession, saveRoutine } from './domain.mjs';
+import { emptyData, startSession, setExercise, addSet, updateSet, cancelSet, restoreSet, finishSession, deleteSetRecord, deleteSession, clearSessionHistory, validateBackup, routineDraftFromSession, saveRoutine, setExercisePart } from './domain.mjs';
 
 test('Korean voice input uses actual reps and current weight', () => {
   assert.deepEqual(parseUtterance('8개', 70), { status: 'ok', reps: 8, weight: 70 });
@@ -90,4 +90,25 @@ test('a workout becomes a routine draft from its last valid sets', () => {
   const saved = saveRoutine(emptyData(), { id: 'r', title: draft.title, exercises: draft.exercises.map((item, index) => ({ ...item, id: `r${index}` })) });
   assert.equal(saved.routines[0].exercises.length, 2);
   assert.equal(routineDraftFromSession({ exercises: [session.exercises[1]] }, '빈 기록'), null);
+});
+
+test('exercise parts store only explicit choices and survive history clearing', () => {
+  let data = setExercisePart(emptyData(), ' 데드리프트 ', '하체');
+  assert.deepEqual(data.exerciseParts, { 데드리프트: '하체' });
+  data = clearSessionHistory(data);
+  assert.deepEqual(data.exerciseParts, { 데드리프트: '하체' });
+  data = setExercisePart(data, '데드리프트', null);
+  assert.deepEqual(data.exerciseParts, {});
+  assert.throws(() => setExercisePart(data, '스쿼트', '종아리'), /부위/);
+  assert.throws(() => setExercisePart(data, '', '하체'), /부위/);
+});
+
+test('backups validate exercise parts and default them for older files', () => {
+  const old = { version: 1, routines: [], sessions: [] };
+  assert.deepEqual(validateBackup(old).exerciseParts, {});
+  assert.deepEqual(validateBackup({ ...old, exerciseParts: { 스쿼트: '하체' } }).exerciseParts, { 스쿼트: '하체' });
+  for (const bad of [[], 'x', { 스쿼트: '다리' }, { ' 스쿼트': '하체' }, { '': '하체' }, { ['가'.repeat(61)]: '하체' }]) {
+    assert.throws(() => validateBackup({ ...old, exerciseParts: bad }), /부위/);
+  }
+  assert.deepEqual(validateBackup({ ...old, exerciseParts: null }).exerciseParts, {});
 });
