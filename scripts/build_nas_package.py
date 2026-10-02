@@ -11,7 +11,7 @@ OUTPUT_ZIP = ROOT / "dist" / "voice-fitness-nas.zip"
 OUTPUT_TAR = ROOT / "dist" / "voice-fitness-nas.tar.gz"
 SITE_FILES = [
     "index.html", "styles.css", "app.mjs", "db.mjs", "domain.mjs",
-    "parser.mjs", "dictation.mjs", "csv.mjs", "workout-guide.mjs", "progression.mjs", "records.mjs", "rest.mjs", "plates.mjs", "icons.mjs", "activity.mjs", "body-parts.mjs", "nas-backup.mjs", "fonts/VFSans-Variable.woff2", "fonts/OFL.txt", "manifest.webmanifest", "icon.svg",
+    "parser.mjs", "dictation.mjs", "csv.mjs", "workout-guide.mjs", "progression.mjs", "records.mjs", "rest.mjs", "plates.mjs", "icons.mjs", "activity.mjs", "body-parts.mjs", "routine-recommender.mjs", "nas-backup.mjs", "fonts/VFSans-Variable.woff2", "fonts/OFL.txt", "manifest.webmanifest", "icon.svg",
     "icon-192.png", "sw.js",
 ]
 BACKUP_SERVER_FILES = ["server.mjs", "backup-core.mjs"]

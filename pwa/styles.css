@@ -444,6 +444,14 @@ input::placeholder, textarea::placeholder { color: var(--text-secondary); }
 @keyframes dialog-in { from { opacity: 0; transform: translateY(12px); } }
 .sheet { display: grid; gap: 16px; padding: 20px var(--gutter) calc(20px + env(safe-area-inset-bottom)); }
 .sheet-heading { display: grid; gap: 4px; }
+/* Recommender: one question per screen, answers as large buttons */
+.choice-list { display: grid; gap: 8px; }
+.choice { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; width: 100%; min-height: 56px; padding: 12px 16px; border: 1px solid var(--border-strong); border-radius: var(--radius-control); background: var(--surface); color: var(--text); text-align: left; font-size: 17px; transition: background-color var(--duration), border-color var(--duration); }
+.choice:hover { background: var(--surface-muted); }
+.choice.selected { border: 2px solid var(--primary); background: var(--primary-soft); padding: 11px 15px; }
+.choice .icon { margin-left: auto; color: var(--primary); }
+.recommend-reason { display: flex; align-items: center; gap: 4px; }
+.lift-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .dialog-title { font-size: 20px; font-weight: 700; line-height: 1.35; }
 .confirm-head { display: flex; align-items: center; gap: 12px; }
 .confirm-icon { display: inline-grid; place-items: center; flex: none; width: 44px; height: 44px; border-radius: 999px; background: var(--primary-soft); color: var(--primary); }

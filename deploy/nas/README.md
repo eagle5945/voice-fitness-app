@@ -20,7 +20,7 @@ Windows에서 `python scripts/build_nas_package.py`로 생성합니다. 패키�
 
 ## 확인 및 복구
 
-현재 script는 `app.mjs?v=20261002-37`, 캐시는 `voice-fitness-v44`입니다. Safari 새로고침 후 운동 화면의 ‘받아쓰기로 입력’을 확인하세요. 기존 ‘눌러서 말하기’가 보이면 앱을 완전히 닫았다가 다시 여세요. 입력창을 닫으면 저장되지 않고, 문장을 수정하면 이전 미리보기는 무효가 됩니다.
+현재 script는 `app.mjs?v=20261002-38`, 캐시는 `voice-fitness-v45`입니다. Safari 새로고침 후 운동 화면의 ‘받아쓰기로 입력’을 확인하세요. 기존 ‘눌러서 말하기’가 보이면 앱을 완전히 닫았다가 다시 여세요. 입력창을 닫으면 저장되지 않고, 문장을 수정하면 이전 미리보기는 무효가 됩니다.
 
 사이트 파일 롤백은 백업 site 파일들을 같은 위치에 복원합니다. nginx/compose까지 변경했다면 함께 복원하고 web만 재생성합니다. iPhone 기록 DB는 롤백 과정에서 지우지 않습니다.
 
@@ -130,3 +130,7 @@ Windows에서 `python scripts/build_nas_package.py`로 생성합니다. 패키�
 ## 보안 강화 · 20261002-37
 
 nginx.conf(보안 헤더), compose.yaml(백업 컨테이너 bridge 네트워크·cap_drop), backup-server/(server.mjs, domain.mjs), 사이트 파일이 바뀝니다. 새 사이트(인라인 style 없음)를 먼저 올린 뒤 root로 nginx.conf·compose.yaml을 교체하고 `docker compose up -d backup`, `docker compose up -d --force-recreate web` 순서로 적용합니다. CSP를 먼저 적용하면 이전 앱의 막대 폭이 표시되지 않습니다(기능에는 영향 없음).
+
+## 추천 루틴 · 20261002-38
+
+배포 시 새 파일 `routine-recommender.mjs`를 site에 함께 복사해야 합니다. 이 파일이 없으면 앱 전체가 시작되지 않습니다. 데이터베이스 형식은 그대로이고 백업 서버와 nginx 설정은 바꾸지 않습니다.

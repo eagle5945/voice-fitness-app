@@ -10,6 +10,7 @@ import { platesFor, plateText } from './plates.mjs';
 import { icon } from './icons.mjs';
 import { activityCalendar, weeklyVolume, weeklyReport, reportSentence } from './activity.mjs';
 import { BODY_PARTS, bodyPartSummary } from './body-parts.mjs';
+import { QUESTIONS, askLifts, recommend } from './routine-recommender.mjs';
 import { sha256Hex, shouldSend, sendBackup, listBackups, fetchBackup, errorText, backupList } from './nas-backup.mjs';
 
 const main = document.getElementById('app-main');
@@ -258,11 +259,11 @@ function renderHome() {
       <div class="plan-head"><p class="card-title">${escapeHtml(routine.title)}${isNext ? ` ${badge('primary', 'repeat', '다음 차례')}` : ''}</p><span class="meta">${routine.exercises.length}개 종목 · ${planSets(routine)}세트${lastDone ? ` · 마지막 ${agoText(lastDone)}` : ''}</span></div>
       ${planPreview(routine)}
       <button class="button primary full" data-action="start-routine">${icon('dumbbell')} 운동 시작</button>
-    </section>${freeStart}` : `<section class="card empty-state"><span class="empty-icon">${icon('list-checks', { size: 28 })}</span><h2 class="card-title">루틴을 먼저 만들어 주세요</h2><p class="meta">자주 하는 운동을 순서대로 저장하면 운동할 때 하나씩 안내합니다.</p><button class="button primary" data-action="new-routine">${icon('plus')} 첫 루틴 만들기</button></section>${freeStart}`;
+    </section>${freeStart}` : `<section class="card empty-state"><span class="empty-icon">${icon('list-checks', { size: 28 })}</span><h2 class="card-title">루틴을 먼저 만들어 주세요</h2><p class="meta">자주 하는 운동을 순서대로 저장하면 운동할 때 하나씩 안내합니다.</p><div class="button-wrap"><button class="button primary" data-action="open-recommend">${icon('list-checks')} 추천 받기</button><button class="button secondary" data-action="new-routine">${icon('plus')} 직접 만들기</button></div></section>${freeStart}`;
   return `${pageHead(date, session ? '진행 중인 운동이 있습니다' : '오늘 운동')}
     <div class="layout-split"><div class="col-main stack">${primary}</div>
     <aside class="col-side stack" aria-label="최근 운동과 도움말"><section class="card"><div class="card-head"><h2 class="card-title">최근 운동</h2><button class="icon-button" data-view="history" aria-label="최근 운동 전체 보기">${icon('arrow-right')}</button></div>${recent.length ? `<ul class="list">${recent.map(recentItem).join('')}</ul>` : '<p class="meta">첫 운동을 기록하면 여기에 표시됩니다.</p>'}</section>
-    <details class="card disclosure"><summary><span>홈 화면에 추가하기</span>${icon('chevron-down')}</summary><div class="disclosure-body"><p class="meta">Safari 공유 메뉴에서 ‘홈 화면에 추가’를 선택하세요. 루틴과 기록은 이 기기에 저장되며, 기록 탭에서 JSON으로 백업할 수 있습니다.</p><p class="meta version-label">버전 20261002-37</p></div></details></aside></div>`;
+    <details class="card disclosure"><summary><span>홈 화면에 추가하기</span>${icon('chevron-down')}</summary><div class="disclosure-body"><p class="meta">Safari 공유 메뉴에서 ‘홈 화면에 추가’를 선택하세요. 루틴과 기록은 이 기기에 저장되며, 기록 탭에서 JSON으로 백업할 수 있습니다.</p><p class="meta version-label">버전 20261002-38</p></div></details></aside></div>`;
 }
 
 function renderSetup() {
@@ -312,8 +313,8 @@ function renderActive() {
 }
 function renderRoutines() {
   const today = selectedRoutineId ?? data.selectedRoutineId;
-  return `${pageHead('루틴', '나의 루틴', '', `<button class="button primary" data-action="new-routine">${icon('plus')} 새 루틴</button>`)}
-    ${data.routines.length ? `<div class="card-grid">${data.routines.map(routine => { const title = escapeHtml(routine.title); return `<section class="card routine-card"><div class="card-head"><h2 class="card-title">${title}</h2>${routine.id === today ? badge('primary', 'check', '오늘 선택') : ''}</div><p class="meta">${routine.exercises.length}개 종목 · ${planSets(routine)}세트</p><div class="card-actions"><button class="button secondary" data-action="use-routine" data-id="${escapeHtml(routine.id)}">${icon('check')} 오늘 이 루틴</button><button class="icon-button" data-action="edit-routine" data-id="${escapeHtml(routine.id)}" aria-label="${title} 루틴 수정">${icon('pencil')}</button><button class="icon-button danger" data-action="delete-routine" data-id="${escapeHtml(routine.id)}" aria-label="${title} 루틴 삭제">${icon('trash-2')}</button></div></section>`; }).join('')}</div>` : `<section class="card empty-state"><span class="empty-icon">${icon('list-checks', { size: 28 })}</span><h2 class="card-title">아직 저장한 루틴이 없습니다</h2><p class="meta">운동 이름, 중량, 횟수, 세트 수를 저장하면 운동할 때 순서대로 안내합니다.</p><button class="button primary" data-action="new-routine">${icon('plus')} 첫 루틴 만들기</button></section>`}`;
+  return `${pageHead('루틴', '나의 루틴', '', `<button class="button secondary" data-action="open-recommend">${icon('list-checks')} 추천 받기</button><button class="button primary" data-action="new-routine">${icon('plus')} 새 루틴</button>`)}
+    ${data.routines.length ? `<div class="card-grid">${data.routines.map(routine => { const title = escapeHtml(routine.title); return `<section class="card routine-card"><div class="card-head"><h2 class="card-title">${title}</h2>${routine.id === today ? badge('primary', 'check', '오늘 선택') : ''}</div><p class="meta">${routine.exercises.length}개 종목 · ${planSets(routine)}세트</p><div class="card-actions"><button class="button secondary" data-action="use-routine" data-id="${escapeHtml(routine.id)}">${icon('check')} 오늘 이 루틴</button><button class="icon-button" data-action="edit-routine" data-id="${escapeHtml(routine.id)}" aria-label="${title} 루틴 수정">${icon('pencil')}</button><button class="icon-button danger" data-action="delete-routine" data-id="${escapeHtml(routine.id)}" aria-label="${title} 루틴 삭제">${icon('trash-2')}</button></div></section>`; }).join('')}</div>` : `<section class="card empty-state"><span class="empty-icon">${icon('list-checks', { size: 28 })}</span><h2 class="card-title">아직 저장한 루틴이 없습니다</h2><p class="meta">운동 이름, 중량, 횟수, 세트 수를 저장하면 운동할 때 순서대로 안내합니다.</p><div class="button-wrap"><button class="button primary" data-action="open-recommend">${icon('list-checks')} 추천 받기</button><button class="button secondary" data-action="new-routine">${icon('plus')} 직접 만들기</button></div></section>`}`;
 }
 function renderHistory() {
   const session = historySessionId && data.sessions.find(item => item.id === historySessionId);
@@ -530,6 +531,107 @@ dictationSave.addEventListener('click', async () => {
   }
 });
 
+// Routine recommender: five questions (plus optional 5-rep weights), then a program built by fixed rules.
+const recommendDialog = document.getElementById('recommend-dialog');
+const recommendBody = document.getElementById('recommend-body');
+const RESULT_STEP = QUESTIONS.length + 1;
+const LIFT_FIELDS = [['squat', '바벨 스쿼트'], ['bench', '벤치프레스'], ['deadlift', '데드리프트']];
+let recommendState = null;
+
+function openRecommend() {
+  recommendState = { step: 0, answers: {}, lifts: {}, alternative: false };
+  renderRecommend();
+  recommendDialog.showModal();
+  // showModal focuses the close button first; the first answer is the more useful start.
+  recommendBody.querySelector('.choice')?.focus();
+}
+
+function renderRecommend() {
+  const { step, answers, lifts } = recommendState;
+  const total = QUESTIONS.length + (askLifts(answers) ? 1 : 0);
+  const close = `<button type="button" class="icon-button" data-action="recommend-close" aria-label="추천 닫기">${icon('x')}</button>`;
+  const back = step > 0 ? `<button type="button" class="button secondary" data-action="recommend-back">${icon('arrow-left')} 이전</button>` : '';
+  const head = (eyebrow, title) => `<div class="card-head"><div class="sheet-heading"><p class="eyebrow">${eyebrow}</p><h2 id="recommend-title" class="dialog-title">${title}</h2></div>${close}</div>`;
+  if (step < QUESTIONS.length) {
+    const question = QUESTIONS[step];
+    recommendBody.innerHTML = `${head(`추천 루틴 · ${step + 1}/${total}`, question.title)}${progress(step, total, '질문 진행')}
+      <div class="choice-list" role="group" aria-label="${question.title}">${question.options.map(([value, label, hint]) => { const on = answers[question.key] === value; return `<button type="button" class="choice ${on ? 'selected' : ''}" aria-pressed="${on}" data-action="recommend-answer" data-key="${question.key}" data-value="${value}"><strong>${label}</strong>${hint ? `<span class="meta">${hint}</span>` : ''}${on ? icon('check') : ''}</button>`; }).join('')}</div>
+      ${back ? `<div class="button-row">${back}</div>` : ''}`;
+  } else if (step === QUESTIONS.length) {
+    recommendBody.innerHTML = `${head(`추천 루틴 · ${total}/${total} · 선택`, '5회 할 수 있는 무게를 아나요?')}${progress(step, total, '질문 진행')}
+      <p class="meta">시작 중량을 맞추는 데 씁니다. 모르면 건너뛰세요. 가볍게 시작해 자동 증량 코치가 올려 줍니다.</p>
+      <div class="field-grid lift-fields">${LIFT_FIELDS.map(([key, label]) => `<label class="field"><span class="label">${label} (kg)</span><input id="recommend-${key}" type="number" inputmode="decimal" min="20" max="500" step="2.5" value="${lifts[key] ?? ''}"></label>`).join('')}</div>
+      <p id="recommend-error" class="inline-error" role="alert" hidden></p>
+      <div class="button-row">${back}<button type="button" class="button secondary" data-action="recommend-skip">건너뛰기</button><button type="button" class="button primary" data-action="recommend-lifts">다음</button></div>`;
+  } else {
+    const result = recommend(answers, lifts);
+    const program = recommendState.alternative ? result.alternative : result.primary;
+    const other = recommendState.alternative ? result.primary : result.alternative;
+    const loadNote = Object.keys(lifts).length ? '입력한 5회 중량을 기준으로 목표 횟수에 맞게 낮춰 시작합니다.' : '가볍게 시작합니다. 계획 세트를 모두 채우면 자동 증량 코치가 다음 중량을 제안합니다.';
+    recommendBody.innerHTML = `${head(recommendState.alternative ? '다른 추천' : '추천 결과', program.name)}
+      <div class="recommend-reason"><span class="meta">${result.reason}</span>${infoToggle('추천 기준', '처음이거나 주 2회면 전신 기초, 주 3회는 근력이면 5×5 A/B·그 외 전신 A/B, 주 4회는 상·하체 분할, 주 5회 이상은 PPL 3분할을 추천합니다. 목표에 따라 근력 5회×5세트, 근비대 8~12회, 건강·체력 12~15회로, 시간에 따라 하루 4~6종목으로 맞춥니다. 이 앱이 정한 기준이며 의학적 조언이 아닙니다. 통증이 있으면 멈추고 전문가와 상담하세요.')}</div>
+      <p class="meta">${loadNote} 추가한 뒤에는 루틴 탭에서 자유롭게 고칠 수 있습니다.</p>
+      ${program.routines.map(routine => `<div class="plan-head"><p class="card-title">${escapeHtml(routine.title)}</p><span class="meta">${routine.exercises.length}개 종목 · ${planSets(routine)}세트</span></div>${planPreview(routine)}`).join('')}
+      <div class="button-row sheet-footer"><button type="button" class="button secondary" data-action="recommend-other" aria-label="다른 추천 보기: ${escapeHtml(other.name)}">${recommendState.alternative ? '처음 추천 보기' : '다른 추천 보기'}</button><button type="button" class="button primary" data-action="recommend-add">${icon('plus')} 이 루틴으로 시작</button></div>
+      <button type="button" class="text-button" data-action="recommend-restart">${icon('rotate-ccw')} 다시 답하기</button>`;
+  }
+  recommendBody.querySelector('.choice.selected, .choice, input, [data-action="recommend-add"]')?.focus();
+}
+
+async function handleRecommend(action, button) {
+  const state = recommendState;
+  if (action === 'open-recommend') { openRecommend(); return; }
+  if (!state) return;
+  if (action === 'recommend-close') { recommendDialog.close(); return; }
+  if (action === 'recommend-answer') {
+    state.answers[button.dataset.key] = button.dataset.value;
+    state.step += 1;
+    if (state.step === QUESTIONS.length && !askLifts(state.answers)) { state.lifts = {}; state.step = RESULT_STEP; }
+  } else if (action === 'recommend-back') {
+    state.step -= 1;
+    if (state.step === QUESTIONS.length && !askLifts(state.answers)) state.step -= 1;
+    state.alternative = false;
+  } else if (action === 'recommend-skip') { state.lifts = {}; state.step = RESULT_STEP; }
+  else if (action === 'recommend-lifts') {
+    const lifts = {};
+    for (const [key] of LIFT_FIELDS) {
+      const raw = document.getElementById(`recommend-${key}`).value;
+      if (raw === '') continue;
+      const value = Number(raw);
+      if (!Number.isFinite(value) || value < 20 || value > 500) {
+        const error = document.getElementById('recommend-error');
+        error.textContent = '무게는 20~500kg 사이로 입력하거나 비워 두세요.';
+        error.hidden = false;
+        return;
+      }
+      lifts[key] = value;
+    }
+    state.lifts = lifts;
+    state.step = RESULT_STEP;
+  } else if (action === 'recommend-other') state.alternative = !state.alternative;
+  else if (action === 'recommend-restart') Object.assign(state, { step: 0, answers: {}, lifts: {}, alternative: false });
+  else if (action === 'recommend-add') {
+    const result = recommend(state.answers, state.lifts);
+    const program = state.alternative ? result.alternative : result.primary;
+    let next = data;
+    const ids = [];
+    for (const routine of program.routines) {
+      const routineId = id();
+      ids.push(routineId);
+      next = saveRoutine(next, { id: routineId, title: routine.title, exercises: routine.exercises.map(item => ({ id: id(), ...item })) });
+    }
+    next = selectRoutine(next, ids[0]);
+    selectedRoutineId = ids[0];
+    await commit(next);
+    recommendDialog.close();
+    toast({ text: `${program.name} 루틴 ${ids.length}개를 추가했습니다.` });
+    go('home');
+    return;
+  }
+  renderRecommend();
+}
+recommendDialog.addEventListener('close', () => { recommendState = null; });
+
 function routineExerciseRow(item = {}, index = routineExerciseList.children.length) {
   const rowId = item.id ?? id();
   return `<div class="routine-exercise" data-routine-item="${escapeHtml(rowId)}">
@@ -700,6 +802,7 @@ document.addEventListener('click', async event => {
       toast({ kind: 'info', text: `${csv ? 'CSV' : 'JSON 백업'} 파일 내보내기를 시작했습니다. iPhone 파일 앱에 저장됐는지 확인하세요.` });
     }
     else if (action === 'import') backupInput.click();
+    else if (action === 'open-recommend' || action.startsWith('recommend-')) await handleRecommend(action, button);
     else if (action === 'nas-connect') {
       const token = document.getElementById('nas-token')?.value.trim() ?? '';
       if (token.length < 32) throw new Error('NAS에서 만든 백업 토큰을 그대로 붙여 넣어주세요.');
