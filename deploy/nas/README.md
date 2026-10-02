@@ -20,7 +20,7 @@ Windows에서 `python scripts/build_nas_package.py`로 생성합니다. 패키�
 
 ## 확인 및 복구
 
-현재 script는 `app.mjs?v=20261002-30`, 캐시는 `voice-fitness-v37`입니다. Safari 새로고침 후 운동 화면의 ‘받아쓰기로 입력’을 확인하세요. 기존 ‘눌러서 말하기’가 보이면 앱을 완전히 닫았다가 다시 여세요. 입력창을 닫으면 저장되지 않고, 문장을 수정하면 이전 미리보기는 무효가 됩니다.
+현재 script는 `app.mjs?v=20261002-31`, 캐시는 `voice-fitness-v38`입니다. Safari 새로고침 후 운동 화면의 ‘받아쓰기로 입력’을 확인하세요. 기존 ‘눌러서 말하기’가 보이면 앱을 완전히 닫았다가 다시 여세요. 입력창을 닫으면 저장되지 않고, 문장을 수정하면 이전 미리보기는 무효가 됩니다.
 
 사이트 파일 롤백은 백업 site 파일들을 같은 위치에 복원합니다. nginx/compose까지 변경했다면 함께 복원하고 web만 재생성합니다. iPhone 기록 DB는 롤백 과정에서 지우지 않습니다.
 
@@ -93,3 +93,7 @@ Windows에서 `python scripts/build_nas_package.py`로 생성합니다. 패키�
 5. 토큰 없이 `/api/backup/`을 부르면 401, `/api/stt/status`는 404여야 합니다.
 
 토큰과 `auto-backups/`는 저장소와 `site/`에 두지 않습니다. 롤백은 `docker update --restart=no voice-fitness-backup`, `docker stop voice-fitness-backup` 후 이전 nginx.conf로 web만 다시 만듭니다. `auto-backups/`는 지우지 않습니다.
+
+## 직전 세트 반복 · 20261002-31
+
+운동 화면의 ‘다시’ 버튼과 받아쓰기 “같은 거”로 직전 세트를 다시 기록합니다. 변경 파일은 app.mjs, dictation.mjs, parser.mjs, icons.mjs, styles.css이며 새 파일은 없습니다. 데이터베이스 형식은 그대로이고 백업 서버는 바꾸지 않습니다.

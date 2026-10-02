@@ -502,7 +502,7 @@ input::placeholder, textarea::placeholder { color: var(--text-secondary); }
   .record-actions { grid-template-columns: 2fr 1fr; }
   .activity-card { --cell: 18px; --cell-gap: 4px; }
   .heatmap { justify-content: flex-start; }
-  .record-actions .meta { grid-column: 1 / -1; }
+  .record-actions .meta, .record-actions .record-repeat { grid-column: 1 / -1; }
 }
 
 /* Desktop ≥1024px: two-column work areas */

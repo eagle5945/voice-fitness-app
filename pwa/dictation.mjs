@@ -1,6 +1,17 @@
-import { parseUtterance } from './parser.mjs';
+import { parseUtterance, isRepeatPhrase } from './parser.mjs';
+
+// The latest valid set of this exercise in the current session, or null before the first set.
+export function lastSetOf(exercise) {
+  const set = exercise?.sets.filter(item => !item.canceledAt).at(-1);
+  return set ? { weight: set.weight, reps: set.reps } : null;
+}
 
 export function previewDictation(text, context) {
+  // Checked first: “한 번 더” would otherwise read as one rep.
+  if (isRepeatPhrase(text)) {
+    const candidate = context.last ? { status: 'ok', weight: context.last.weight, reps: context.last.reps, repeat: true } : { status: 'no-previous' };
+    return { status: candidate.status, candidate, text, context: { ...context } };
+  }
   const candidate = parseUtterance(text, context.weight);
   return { status: candidate.status, candidate, text, context: { ...context } };
 }

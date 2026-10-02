@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseUtterance } from './parser.mjs';
+import { parseUtterance, isRepeatPhrase } from './parser.mjs';
 
 for (const [text, weight, reps] of [
   ['70키로 20회', 70, 20],
@@ -42,4 +42,13 @@ for (const text of ['70키로', '70 20', '-5회', '1.5회', '이십점오키로 
 test('multiple weights or rep counts still require clarification', () => {
   assert.equal(parseUtterance('70키로 80키로 20회', 10).status, 'ambiguous');
   assert.equal(parseUtterance('70키로 8회 18회', 10).status, 'ambiguous');
+});
+
+test('repeat phrases are recognized without numbers', () => {
+  for (const text of ['같은 거', '같은거요', '같은 걸로', '똑같이', '똑같이요.', '똑같은 걸로', '한 번 더', '한 세트 더', '다시', '다시 한 번', '아까랑 같이', '아까처럼', '방금이랑 똑같이', '그대로', '같은 거 했어요']) {
+    assert.equal(isRepeatPhrase(text), true, text);
+  }
+  for (const text of ['', '같은 거 20회', '다시 70킬로', '한 번', '같이 가자', '20회', '다시는 안 해']) {
+    assert.equal(isRepeatPhrase(text), false, text);
+  }
 });

@@ -1,6 +1,6 @@
 import { emptyData, startSession, startRoutine, chooseSessionExercise, saveRoutine, removeRoutine, selectRoutine, setExercise, addSet, updateSet, cancelSet, restoreSet, deleteSetRecord, deleteSession, clearSessionHistory, finishSession, validateBackup, routineDraftFromSession } from './domain.mjs';
 import { loadData, saveData, loadNasBackup, saveNasBackup } from './db.mjs';
-import { previewDictation, confirmDictation } from './dictation.mjs';
+import { previewDictation, confirmDictation, lastSetOf } from './dictation.mjs';
 import { exportWorkoutCsv } from './csv.mjs';
 import { workoutGuide } from './workout-guide.mjs';
 import { findPreviousExercise, suggestProgression } from './progression.mjs';
@@ -27,6 +27,7 @@ let selectedRoutineId = null;
 let dictationContext = null;
 let dictationPreview = null;
 let dictationSaving = false;
+let repeatSaving = false;
 let fatalError = null;
 // NAS backup settings and status; stored under their own key, never inside data.
 let nas = {};
@@ -206,7 +207,7 @@ function renderHome() {
   return `${pageHead(date, session ? '진행 중인 운동이 있습니다' : '오늘 운동')}
     <div class="layout-split"><div class="col-main stack">${primary}</div>
     <aside class="col-side stack" aria-label="최근 운동과 도움말"><section class="card"><div class="card-head"><h2 class="card-title">최근 운동</h2><button class="icon-button" data-view="history" aria-label="최근 운동 전체 보기">${icon('arrow-right')}</button></div>${recent.length ? `<ul class="list">${recent.map(recentItem).join('')}</ul>` : '<p class="meta">첫 운동을 기록하면 여기에 표시됩니다.</p>'}</section>
-    <details class="card disclosure"><summary><span>홈 화면에 추가하기</span>${icon('chevron-down')}</summary><div class="disclosure-body"><p class="meta">Safari 공유 메뉴에서 ‘홈 화면에 추가’를 선택하세요. 루틴과 기록은 이 기기에 저장되며, 기록 탭에서 JSON으로 백업할 수 있습니다.</p><p class="meta version-label">버전 20261002-30</p></div></details></aside></div>`;
+    <details class="card disclosure"><summary><span>홈 화면에 추가하기</span>${icon('chevron-down')}</summary><div class="disclosure-body"><p class="meta">Safari 공유 메뉴에서 ‘홈 화면에 추가’를 선택하세요. 루틴과 기록은 이 기기에 저장되며, 기록 탭에서 JSON으로 백업할 수 있습니다.</p><p class="meta version-label">버전 20261002-31</p></div></details></aside></div>`;
 }
 
 function renderSetup() {
@@ -225,6 +226,7 @@ function renderActive() {
   const exercise = activeExercise();
   if (!session || !exercise) { view = 'home'; return renderHome(); }
   const sets = setsFor(exercise);
+  const last = lastSetOf(exercise);
   const guide = workoutGuide(session, exercise.id);
   const previous = findPreviousExercise(data.sessions, exercise, session.id);
   const previousSets = previous ? setsFor(previous) : [];
@@ -243,7 +245,7 @@ function renderActive() {
     </section>
     ${rest ? `<p id="rest-timer" class="rest-timer ${rest.ready ? 'ready' : ''}" role="timer" data-since="${restSince}" data-target="${restTarget ?? ''}">${icon('timer', { size: 18 })}${icon('circle-check', { size: 18 })}<span class="rest-text">${restLabel(rest)}</span></p>` : ''}
     ${suggestion ? `<section class="card callout callout-primary progression-card"><div class="callout-head"><span class="callout-icon">${icon('trending-up')}</span><div><p class="card-title">오늘은 ${suggestion.weight}kg 도전</p><p class="meta">지난번 ${suggestion.base}kg로 ${suggestion.sets}세트를 ${suggestion.reps}회 이상 했습니다.</p></div></div><div class="button-row"><button class="button secondary" data-action="dismiss-progression">${exercise.weight}kg 유지</button><button class="button primary" data-action="apply-progression">${icon('arrow-up')} ${suggestion.weight}kg로 올리기</button></div></section>` : ''}
-    ${guide.currentComplete ? `<section class="card callout callout-success"><div class="callout-head"><span class="callout-icon">${icon('circle-check')}</span><div><p class="card-title">${guide.allComplete ? '오늘의 루틴을 모두 완료했습니다' : '이 종목의 계획 세트를 완료했습니다'}</p><p class="meta">${guide.allComplete ? '운동을 마무리하고 기록을 저장하세요.' : '다음 종목으로 이어가세요.'}</p></div></div>${guide.next ? `<button class="button primary full" data-action="choose-routine-exercise" data-id="${escapeHtml(guide.next.id)}">다음 종목 · ${escapeHtml(guide.next.name)} ${icon('arrow-right')}</button>` : `<button class="button primary full" data-action="finish">${icon('flag')} 운동 마무리</button>`}<button class="button secondary full" data-action="manual-set">${icon('plus')} 추가 세트 기록</button></section>` : `<div class="record-actions"><button class="button primary record-button" data-action="open-dictation">${icon('mic', { size: 22 })} 받아쓰기로 기록</button><button class="button secondary" data-action="manual-set">${icon('pencil')} 직접 입력</button></div>`}
+    ${guide.currentComplete ? `<section class="card callout callout-success"><div class="callout-head"><span class="callout-icon">${icon('circle-check')}</span><div><p class="card-title">${guide.allComplete ? '오늘의 루틴을 모두 완료했습니다' : '이 종목의 계획 세트를 완료했습니다'}</p><p class="meta">${guide.allComplete ? '운동을 마무리하고 기록을 저장하세요.' : '다음 종목으로 이어가세요.'}</p></div></div>${guide.next ? `<button class="button primary full" data-action="choose-routine-exercise" data-id="${escapeHtml(guide.next.id)}">다음 종목 · ${escapeHtml(guide.next.name)} ${icon('arrow-right')}</button>` : `<button class="button primary full" data-action="finish">${icon('flag')} 운동 마무리</button>`}<button class="button secondary full" data-action="manual-set">${icon('plus')} 추가 세트 기록</button></section>` : `<div class="record-actions"><button class="button primary record-button" data-action="open-dictation">${icon('mic', { size: 22 })} 받아쓰기로 기록</button><button class="button secondary" data-action="manual-set">${icon('pencil')} 직접 입력</button>${last ? `<button class="button secondary record-repeat" data-action="repeat-set" data-input-id="${id()}">${icon('repeat')} ${last.weight}kg × ${last.reps}회 다시</button>` : ''}</div>`}
     </div><aside class="col-side stack" aria-label="세트 기록과 운동 순서">
     <section class="card"><div class="card-head"><h2 class="card-title">이번 종목 기록</h2><span class="meta">${sets.length}세트</span></div>${sets.length ? setTable(sets, exercise.name) : '<p class="meta">첫 세트를 마친 뒤 기록하세요.</p>'}</section>
     ${session.routineName ? `<details class="card disclosure routine-guide"><summary><span>전체 운동 순서 <span class="meta">${guide.completedSets}/${guide.totalSets}세트 완료</span></span>${icon('chevron-down')}</summary><ol class="step-list">${session.exercises.map((item, index) => { const count = setsFor(item).length; const done = item.plannedSets && count >= item.plannedSets; const current = item.id === exercise.id; return `<li><button type="button" class="step ${current ? 'current' : ''} ${done ? 'complete' : ''}" ${current ? 'aria-current="step"' : ''} data-action="choose-routine-exercise" data-id="${escapeHtml(item.id)}"><span class="plan-index">${done ? icon('check', { size: 16 }) : index + 1}</span><span class="list-main"><strong>${escapeHtml(item.name)}</strong><span class="meta">${item.weight}kg · ${item.target}회 · ${item.plannedSets ? `${count}/${item.plannedSets}` : count}세트</span></span>${current ? badge('primary', '', '현재') : done ? badge('success', 'check', '완료') : icon('arrow-right')}</button></li>`; }).join('')}</ol></details>` : `<button class="button secondary full" data-action="setup-new">${icon('plus')} 다른 종목 추가</button>`}
@@ -420,10 +422,11 @@ function clearDictationPreview() {
 function openDictation() {
   const exercise = activeExercise();
   if (!exercise || dictationSaving) return;
-  dictationContext = { sessionId: data.activeSessionId, exerciseId: exercise.id, weight: exercise.weight, inputId: id() };
+  const last = lastSetOf(exercise);
+  dictationContext = { sessionId: data.activeSessionId, exerciseId: exercise.id, weight: exercise.weight, last, inputId: id() };
   dictationText.value = '';
   clearDictationPreview();
-  document.getElementById('dictation-weight-hint').textContent = `“20회”처럼 횟수만 말하면 현재 설정 ${exercise.weight}kg을 사용합니다.`;
+  document.getElementById('dictation-weight-hint').textContent = `“20회”처럼 횟수만 말하면 현재 설정 ${exercise.weight}kg을 사용합니다.${last ? ` “같은 거”라고 말하면 직전 세트 ${last.weight}kg × ${last.reps}회를 다시 기록합니다.` : ''}`;
   dictationDialog.showModal();
   // Keep focus synchronous with the tap so iPhone can display its text keyboard.
   dictationText.focus();
@@ -440,8 +443,10 @@ document.getElementById('dictation-form').addEventListener('submit', event => {
   const valid = dictationPreview.status === 'ok';
   dictationFeedback.className = `notice ${valid ? 'info' : 'warning'}`;
   dictationFeedback.textContent = valid
-    ? `${dictationPreview.candidate.weight}kg × ${dictationPreview.candidate.reps}회로 기록할까요?`
-    : '중량과 횟수를 확인하지 못했어요. 문장을 “70킬로 20회” 또는 “20회”처럼 수정한 뒤 다시 확인해주세요.';
+    ? `${dictationPreview.candidate.repeat ? '직전 세트와 같은 ' : ''}${dictationPreview.candidate.weight}kg × ${dictationPreview.candidate.reps}회로 기록할까요?`
+    : dictationPreview.status === 'no-previous'
+      ? '이 종목에 아직 기록한 세트가 없어 반복할 수 없어요. “70킬로 20회”처럼 말해주세요.'
+      : '중량과 횟수를 확인하지 못했어요. 문장을 “70킬로 20회” 또는 “20회”처럼 수정한 뒤 다시 확인해주세요.';
   dictationFeedback.hidden = false;
   dictationSave.hidden = !valid;
   if (valid) { dictationText.blur(); dictationSave.focus(); }
@@ -603,6 +608,24 @@ document.addEventListener('click', async event => {
       render();
       toast({ text: '모든 운동 기록을 삭제했습니다. 저장된 루틴은 그대로 있습니다.' });
     }
+    else if (action === 'repeat-set') {
+      const exercise = activeExercise();
+      const last = lastSetOf(exercise);
+      if (repeatSaving || !exercise || !last) return;
+      // One input id per rendered button, so a double tap stores the set only once.
+      repeatSaving = true;
+      button.disabled = true;
+      try {
+        const setId = id();
+        const next = addSet(data, data.activeSessionId, exercise.id, { id: setId, inputId: button.dataset.inputId, weight: last.weight, reps: last.reps, source: 'manual', at: new Date().toISOString() });
+        // addSet returns the data unchanged when this input id was already stored.
+        if (!next.sessions.some(session => session.exercises.some(item => item.sets.some(set => set.id === setId)))) return;
+        const saved = savedNotice(exercise, last);
+        await commit(next);
+        toast({ ...saved, action: `<button type="button" class="text-button" data-action="undo-repeat" data-id="${escapeHtml(setId)}">${icon('rotate-ccw', { size: 18 })} 취소</button>` });
+      } finally { repeatSaving = false; }
+    }
+    else if (action === 'undo-repeat') { dismissToast(button.closest('.toast')); await commit(cancelSet(data, button.dataset.id)); toast({ kind: 'info', text: '방금 반복한 세트를 취소했습니다.' }); }
     else if (action === 'restore-set') { dismissToast(button.closest('.toast')); await commit(restoreSet(data, button.dataset.id)); toast({ text: '세트 기록을 되돌렸습니다.' }); }
     else if (action === 'export' || action === 'export-csv') {
       const csv = action === 'export-csv';

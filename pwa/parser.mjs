@@ -68,3 +68,16 @@ export function parseAlternatives(texts, currentWeight) {
   if (choices.length === 1) return { status: 'ok', ...choices[0] };
   return { status: 'ambiguous', choices: choices.slice(0, 3) };
 }
+
+// “같은 거”, “한 번 더”, “똑같이요” and similar: repeat the previous set instead of naming numbers.
+const repeatEnding = '(?:요|이요|으로|로|해줘|해주세요|했어|했어요|했습니다|했음|완료)?';
+const repeatPhrase = new RegExp(`^(?:${[
+  '(?:(?:아까|방금|이전|전)(?:이랑|랑|하고|과|처럼)?)?(?:같은(?:거|걸|것|걸로|거로|것으로|무게로|세트)?|똑같(?:이|은(?:거|걸|걸로|거로|것으로)?)|그대로|한번더|한세트더|다시(?:한번)?)',
+  '(?:아까|방금|이전|전)(?:이랑|랑|하고|과)같이',
+  '(?:아까|방금|이전)처럼',
+].join('|')})${repeatEnding}$`);
+
+export function isRepeatPhrase(raw) {
+  const text = String(raw ?? '').replace(/[\s.,!?~]/g, '');
+  return Boolean(text) && repeatPhrase.test(text);
+}
