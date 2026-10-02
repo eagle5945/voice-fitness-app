@@ -40,6 +40,35 @@ export function oneRepMaxTrends(sessions, limit = 12) {
     .sort((a, b) => order.get(a.points.at(-1).sessionId) - order.get(b.points.at(-1).sessionId));
 }
 
+// Best estimate from sessions started before this one, so today's sets never move their own reference.
+export function referenceOneRepMax(sessions, exercise, session) {
+  const start = Date.parse(session.startedAt);
+  const values = sessions
+    .filter(item => item.id !== session.id && Date.parse(item.startedAt) < start)
+    .flatMap(item => item.exercises)
+    .filter(item => sameExercise(item, exercise))
+    .map(bestOf)
+    .filter(value => value > 0);
+  return values.length ? Math.max(...values) : null;
+}
+
+// Our own bands; there is no shared standard for naming %1RM zones.
+export const INTENSITY_LEVELS = [
+  { min: 90, label: '최대' },
+  { min: 80, label: '고강도' },
+  { min: 70, label: '중강도' },
+  { min: 60, label: '보통' },
+  { min: 50, label: '가벼움' },
+  { min: 0, label: '워밍업' },
+];
+
+export function intensityOf(weight, reference) {
+  if (!(reference > 0) || !(weight > 0)) return null;
+  const percent = Math.round(weight / reference * 100);
+  const index = INTENSITY_LEVELS.findIndex(level => percent >= level.min);
+  return { percent, label: INTENSITY_LEVELS[index].label, tier: INTENSITY_LEVELS.length - index };
+}
+
 export function sparklinePoints(values, width, height, pad = 3) {
   const min = Math.min(...values);
   const max = Math.max(...values);

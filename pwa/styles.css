@@ -258,6 +258,7 @@ input::placeholder, textarea::placeholder { color: var(--text-secondary); }
 .metric-grid dd { font-size: 32px; line-height: 1.15; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .plate-line { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: var(--radius-control); background: var(--surface-muted); font-size: 15px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .plate-line .icon { color: var(--text-secondary); }
+.intensity-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .rest-timer {
   display: flex; align-items: center; gap: 8px; justify-self: start; min-height: var(--control-height); padding: 0 14px;
   border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text-secondary);
@@ -315,6 +316,7 @@ input::placeholder, textarea::placeholder { color: var(--text-secondary); }
 .danger-zone { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--danger-soft-border); border-radius: var(--radius-card); background: var(--danger-soft); }
 .danger-zone > div { display: grid; gap: 2px; }
 
+
 /* NAS backup: status line, actions and the restore list inside the backup panel */
 .nas-panel { display: grid; gap: 12px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
 .nas-status { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
@@ -365,9 +367,9 @@ input::placeholder, textarea::placeholder { color: var(--text-secondary); }
 .section > .data-table, .records-more > .data-table { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); overflow: hidden; }
 .section > .data-table thead th:first-child, .records-more > .data-table thead th:first-child { border-top-left-radius: var(--radius-card); }
 .section > .data-table thead th:last-child, .records-more > .data-table thead th:last-child { border-top-right-radius: var(--radius-card); }
-.card > .data-table thead th { background: none; padding-top: 0; }
-.card > .data-table th:first-child, .card > .data-table td:first-child { padding-left: 0; }
-.card > .data-table .cell-actions { padding-right: 0; }
+.card > .data-table thead th, .card .set-table > .data-table thead th { background: none; padding-top: 0; }
+.card > .data-table th:first-child, .card > .data-table td:first-child, .card .set-table > .data-table th:first-child, .card .set-table > .data-table td:first-child { padding-left: 0; }
+.card > .data-table .cell-actions, .card .set-table > .data-table .cell-actions { padding-right: 0; }
 @media (max-width: 767px) {
   .data-table.cards-mobile thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .data-table.cards-mobile, .data-table.cards-mobile tbody { display: grid; gap: 12px; background: none; border: 0; }
@@ -393,17 +395,7 @@ input::placeholder, textarea::placeholder { color: var(--text-secondary); }
   .record-table td:nth-child(4) { grid-area: 3 / 1; }
   .record-table td:nth-child(3) { grid-area: 2 / 2 / 4 / 3; justify-self: end; }
   .data-table.cards-mobile.record-table td:nth-child(3)::before { content: none; }
-  .data-table.list-mobile thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-  .data-table.list-mobile, .data-table.list-mobile tbody { display: block; }
-  .data-table.list-mobile tr { display: flex; align-items: center; gap: 12px; padding: 4px 0; border-bottom: 1px solid var(--border); }
-  .data-table.list-mobile tr:last-child { border-bottom: 0; }
-  .data-table.list-mobile th, .data-table.list-mobile td { display: block; border: 0; padding: 0; }
-  .data-table.list-mobile tbody th { min-width: 48px; color: var(--text-secondary); font-weight: 600; }
-  .data-table.list-mobile td:nth-child(2) { font-weight: 700; font-size: 16px; }
-  .data-table.list-mobile td:nth-child(3)::before { content: "× "; color: var(--text-secondary); font-weight: 400; }
-  .data-table.list-mobile td:nth-child(3) { font-weight: 700; font-size: 16px; }
-  .data-table.list-mobile .cell-actions { margin-left: auto; }
-  .data-table.cards-mobile .cell-actions, .data-table.list-mobile .cell-actions { width: auto; }
+  .data-table.cards-mobile .cell-actions { width: auto; }
   /* Weekly volume rows: week + volume on one line, days · sets below. */
   .volume-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .volume-table, .volume-table tbody { display: block; }
@@ -514,4 +506,24 @@ input::placeholder, textarea::placeholder { color: var(--text-secondary); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+/* Set tables follow their own width, not the screen: a narrow card on desktop gets the same one-line list as a phone. */
+.set-table { container-type: inline-size; }
+@container (max-width: 520px) {
+  .data-table.list-mobile thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .data-table.list-mobile, .data-table.list-mobile tbody { display: block; }
+  .data-table.list-mobile tr { display: flex; align-items: center; gap: 12px; padding: 4px 0; border-bottom: 1px solid var(--border); }
+  .data-table.list-mobile tr:last-child { border-bottom: 0; }
+  .data-table.list-mobile th, .data-table.list-mobile td { display: block; border: 0; padding: 0; }
+  .data-table.list-mobile tbody th { min-width: 48px; color: var(--text-secondary); font-weight: 600; }
+  .data-table.list-mobile td:nth-child(2) { font-weight: 700; font-size: 16px; }
+  .data-table.list-mobile td:nth-child(3)::before { content: "× "; color: var(--text-secondary); font-weight: 400; }
+  .data-table.list-mobile td:nth-child(3) { font-weight: 700; font-size: 16px; }
+  /* The intensity badge drops to a second line under the numbers, keeping the edit buttons on the first. */
+  .data-table.list-mobile tr { flex-wrap: wrap; }
+  .data-table.list-mobile .cell-intensity { order: 1; flex-basis: 100%; padding: 0 0 4px 60px; }
+  .data-table.list-mobile .cell-intensity:empty { display: none; }
+  .data-table.list-mobile .cell-actions { margin-left: auto; }
+  .data-table.list-mobile .cell-actions { width: auto; }
 }

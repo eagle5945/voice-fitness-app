@@ -4,7 +4,7 @@ import { previewDictation, confirmDictation, lastSetOf } from './dictation.mjs';
 import { exportWorkoutCsv } from './csv.mjs';
 import { workoutGuide } from './workout-guide.mjs';
 import { findPreviousExercise, suggestProgression } from './progression.mjs';
-import { findRecord, oneRepMaxTrends, sparklinePoints } from './records.mjs';
+import { findRecord, oneRepMaxTrends, sparklinePoints, referenceOneRepMax, intensityOf } from './records.mjs';
 import { typicalRest, lastSetTime, restText } from './rest.mjs';
 import { platesFor, plateText } from './plates.mjs';
 import { icon } from './icons.mjs';
@@ -124,8 +124,15 @@ function sparkline(trend) {
   const [x, y] = points.at(-1);
   return `<svg class="sparkline" viewBox="0 0 96 32" width="96" height="32" role="img" aria-label="${escapeHtml(`${trend.name} 추정 1RM ${trend.points[0].value}kg에서 ${trend.latest}kg`)}"><polyline points="${points.map(point => point.join(',')).join(' ')}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${x}" cy="${y}" r="3" fill="currentColor"/></svg>`;
 }
-function setTable(sets, exerciseName, { removable = false } = {}) {
-  return `<table class="data-table list-mobile"><thead><tr><th scope="col">세트</th><th scope="col">중량</th><th scope="col">횟수</th><th scope="col"><span class="sr-only">작업</span></th></tr></thead><tbody>${sets.map((item, index) => `<tr><th scope="row">${index + 1}세트</th><td>${item.weight}kg</td><td>${item.reps}회</td><td class="cell-actions"><button class="icon-button" data-action="edit-set" data-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(exerciseName)} ${index + 1}세트 수정">${icon('pencil')}</button>${removable ? `<button class="icon-button danger" data-action="delete-set-record" data-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(exerciseName)} ${index + 1}세트 기록 삭제">${icon('trash-2')}</button>` : ''}</td></tr>`).join('')}</tbody></table>`;
+// Machines are left out: their stack numbers differ from one machine to the next, so %1RM means little.
+const intensityKinds = new Set(['barbell', 'dumbbell']);
+const referenceFor = (session, exercise) => (intensityKinds.has(exercise.kind) ? referenceOneRepMax(data.sessions, exercise, session) : null);
+const intensityBadge = value => badge(value.tier >= 5 ? 'warning' : value.tier >= 3 ? 'primary' : 'neutral', '', `${value.percent}% ${value.label}`);
+const intensityInfo = reference => infoToggle('강도 계산 방법', `강도 = 중량 ÷ 기준 1RM. 기준 1RM은 이 운동 전 기록의 최고 추정 1RM ${kgText(reference)}입니다. 50% 미만 워밍업, 50~59% 가벼움, 60~69% 보통, 70~79% 중강도, 80~89% 고강도, 90% 이상 최대. 단계는 이 앱이 정한 기준이며, 머신은 표시하지 않습니다.`);
+
+function setTable(sets, exerciseName, { removable = false, reference = null } = {}) {
+  const intensityCell = item => { const value = intensityOf(item.weight, reference); return `<td class="cell-intensity" data-label="강도">${value ? intensityBadge(value) : ''}</td>`; };
+  return `<div class="set-table"><table class="data-table list-mobile"><thead><tr><th scope="col">세트</th><th scope="col">중량</th><th scope="col">횟수</th>${reference ? '<th scope="col">강도</th>' : ''}<th scope="col"><span class="sr-only">작업</span></th></tr></thead><tbody>${sets.map((item, index) => `<tr><th scope="row">${index + 1}세트</th><td>${item.weight}kg</td><td>${item.reps}회</td>${reference ? intensityCell(item) : ''}<td class="cell-actions"><button class="icon-button" data-action="edit-set" data-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(exerciseName)} ${index + 1}세트 수정">${icon('pencil')}</button>${removable ? `<button class="icon-button danger" data-action="delete-set-record" data-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(exerciseName)} ${index + 1}세트 기록 삭제">${icon('trash-2')}</button>` : ''}</td></tr>`).join('')}</tbody></table></div>`;
 }
 function sessionTable(sessions) {
   return `<table class="data-table cards-mobile session-table"><thead><tr><th scope="col">날짜</th><th scope="col">운동</th><th scope="col">종목</th><th scope="col">세트</th><th scope="col">상태</th><th scope="col"><span class="sr-only">작업</span></th></tr></thead><tbody>${sessions.map(session => {
@@ -207,7 +214,7 @@ function renderHome() {
   return `${pageHead(date, session ? '진행 중인 운동이 있습니다' : '오늘 운동')}
     <div class="layout-split"><div class="col-main stack">${primary}</div>
     <aside class="col-side stack" aria-label="최근 운동과 도움말"><section class="card"><div class="card-head"><h2 class="card-title">최근 운동</h2><button class="icon-button" data-view="history" aria-label="최근 운동 전체 보기">${icon('arrow-right')}</button></div>${recent.length ? `<ul class="list">${recent.map(recentItem).join('')}</ul>` : '<p class="meta">첫 운동을 기록하면 여기에 표시됩니다.</p>'}</section>
-    <details class="card disclosure"><summary><span>홈 화면에 추가하기</span>${icon('chevron-down')}</summary><div class="disclosure-body"><p class="meta">Safari 공유 메뉴에서 ‘홈 화면에 추가’를 선택하세요. 루틴과 기록은 이 기기에 저장되며, 기록 탭에서 JSON으로 백업할 수 있습니다.</p><p class="meta version-label">버전 20261002-31</p></div></details></aside></div>`;
+    <details class="card disclosure"><summary><span>홈 화면에 추가하기</span>${icon('chevron-down')}</summary><div class="disclosure-body"><p class="meta">Safari 공유 메뉴에서 ‘홈 화면에 추가’를 선택하세요. 루틴과 기록은 이 기기에 저장되며, 기록 탭에서 JSON으로 백업할 수 있습니다.</p><p class="meta version-label">버전 20261002-32</p></div></details></aside></div>`;
 }
 
 function renderSetup() {
@@ -227,6 +234,8 @@ function renderActive() {
   if (!session || !exercise) { view = 'home'; return renderHome(); }
   const sets = setsFor(exercise);
   const last = lastSetOf(exercise);
+  const reference = referenceFor(session, exercise);
+  const targetIntensity = intensityOf(exercise.weight, reference);
   const guide = workoutGuide(session, exercise.id);
   const previous = findPreviousExercise(data.sessions, exercise, session.id);
   const previousSets = previous ? setsFor(previous) : [];
@@ -241,13 +250,14 @@ function renderActive() {
       <div class="card-head">${guide.currentComplete ? badge('success', 'circle-check', '계획 세트 완료') : badge('primary', '', `${sets.length + 1}세트 차례`)}<div class="head-tools">${badge('neutral', '', kindShort[exercise.kind])}${infoToggle('장비 중량 기준', weightBasis[exercise.kind])}<button class="icon-button" data-action="edit-exercise" aria-label="목표 변경">${icon('pencil')}</button></div></div>
       <dl class="metric-grid"><div><dt>중량</dt><dd>${exercise.weight}<span class="unit">kg</span></dd></div><div><dt>목표 횟수</dt><dd>${exercise.target}<span class="unit">회</span></dd></div><div><dt>세트</dt><dd>${exercise.plannedSets ? `${Math.min(sets.length, exercise.plannedSets)}<span class="unit">/ ${exercise.plannedSets}</span>` : `${sets.length}<span class="unit">세트</span>`}</dd></div></dl>
       ${exercise.plannedSets ? progress(sets.length, exercise.plannedSets) : ''}
+      ${targetIntensity ? `<div class="intensity-line"><span class="meta">1RM 대비</span>${intensityBadge(targetIntensity)}${intensityInfo(reference)}</div>` : ''}
       ${exercise.kind === 'barbell' ? `<p class="plate-line">${icon('dumbbell', { size: 18 })}<span>${plateText(platesFor(exercise.weight))}</span></p>` : ''}
     </section>
     ${rest ? `<p id="rest-timer" class="rest-timer ${rest.ready ? 'ready' : ''}" role="timer" data-since="${restSince}" data-target="${restTarget ?? ''}">${icon('timer', { size: 18 })}${icon('circle-check', { size: 18 })}<span class="rest-text">${restLabel(rest)}</span></p>` : ''}
     ${suggestion ? `<section class="card callout callout-primary progression-card"><div class="callout-head"><span class="callout-icon">${icon('trending-up')}</span><div><p class="card-title">오늘은 ${suggestion.weight}kg 도전</p><p class="meta">지난번 ${suggestion.base}kg로 ${suggestion.sets}세트를 ${suggestion.reps}회 이상 했습니다.</p></div></div><div class="button-row"><button class="button secondary" data-action="dismiss-progression">${exercise.weight}kg 유지</button><button class="button primary" data-action="apply-progression">${icon('arrow-up')} ${suggestion.weight}kg로 올리기</button></div></section>` : ''}
     ${guide.currentComplete ? `<section class="card callout callout-success"><div class="callout-head"><span class="callout-icon">${icon('circle-check')}</span><div><p class="card-title">${guide.allComplete ? '오늘의 루틴을 모두 완료했습니다' : '이 종목의 계획 세트를 완료했습니다'}</p><p class="meta">${guide.allComplete ? '운동을 마무리하고 기록을 저장하세요.' : '다음 종목으로 이어가세요.'}</p></div></div>${guide.next ? `<button class="button primary full" data-action="choose-routine-exercise" data-id="${escapeHtml(guide.next.id)}">다음 종목 · ${escapeHtml(guide.next.name)} ${icon('arrow-right')}</button>` : `<button class="button primary full" data-action="finish">${icon('flag')} 운동 마무리</button>`}<button class="button secondary full" data-action="manual-set">${icon('plus')} 추가 세트 기록</button></section>` : `<div class="record-actions"><button class="button primary record-button" data-action="open-dictation">${icon('mic', { size: 22 })} 받아쓰기로 기록</button><button class="button secondary" data-action="manual-set">${icon('pencil')} 직접 입력</button>${last ? `<button class="button secondary record-repeat" data-action="repeat-set" data-input-id="${id()}">${icon('repeat')} ${last.weight}kg × ${last.reps}회 다시</button>` : ''}</div>`}
     </div><aside class="col-side stack" aria-label="세트 기록과 운동 순서">
-    <section class="card"><div class="card-head"><h2 class="card-title">이번 종목 기록</h2><span class="meta">${sets.length}세트</span></div>${sets.length ? setTable(sets, exercise.name) : '<p class="meta">첫 세트를 마친 뒤 기록하세요.</p>'}</section>
+    <section class="card"><div class="card-head"><h2 class="card-title">이번 종목 기록</h2><span class="meta">${sets.length}세트</span></div>${sets.length ? setTable(sets, exercise.name, { reference }) : '<p class="meta">첫 세트를 마친 뒤 기록하세요.</p>'}</section>
     ${session.routineName ? `<details class="card disclosure routine-guide"><summary><span>전체 운동 순서 <span class="meta">${guide.completedSets}/${guide.totalSets}세트 완료</span></span>${icon('chevron-down')}</summary><ol class="step-list">${session.exercises.map((item, index) => { const count = setsFor(item).length; const done = item.plannedSets && count >= item.plannedSets; const current = item.id === exercise.id; return `<li><button type="button" class="step ${current ? 'current' : ''} ${done ? 'complete' : ''}" ${current ? 'aria-current="step"' : ''} data-action="choose-routine-exercise" data-id="${escapeHtml(item.id)}"><span class="plan-index">${done ? icon('check', { size: 16 }) : index + 1}</span><span class="list-main"><strong>${escapeHtml(item.name)}</strong><span class="meta">${item.weight}kg · ${item.target}회 · ${item.plannedSets ? `${count}/${item.plannedSets}` : count}세트</span></span>${current ? badge('primary', '', '현재') : done ? badge('success', 'check', '완료') : icon('arrow-right')}</button></li>`; }).join('')}</ol></details>` : `<button class="button secondary full" data-action="setup-new">${icon('plus')} 다른 종목 추가</button>`}
     ${previousSets.length ? `<details class="card disclosure"><summary><span>지난 기록</span>${icon('chevron-down')}</summary><div class="disclosure-body"><p class="meta">${previousSets.map(item => `${item.weight}kg × ${item.reps}회`).join(' / ')}</p></div></details>` : ''}
     </aside></div>`;
@@ -263,7 +273,7 @@ function renderHistory() {
     const actions = `${sessionRoutineDraft(session) ? `<button class="button secondary" data-action="routine-from-session" data-id="${escapeHtml(session.id)}">${icon('plus')} 이 기록으로 루틴 만들기</button>` : ''}<button class="button danger" data-action="delete-session" data-id="${escapeHtml(session.id)}">${icon('trash-2')} 이 운동 기록 삭제</button>`;
     return `<button class="text-button back-button" data-action="history-back">${icon('arrow-left')} 기록 목록</button>
       ${pageHead(dateText(session.startedAt), escapeHtml(session.routineName ?? '운동 상세'), `${session.endedAt ? badge('success', 'circle-check', '완료') : badge('primary', 'timer', '진행 중')} <span>${sessionSetCount(session)}세트</span>`, actions)}
-      <div class="card-grid">${session.exercises.map(exercise => `<section class="card"><div class="card-head"><h2 class="card-title">${escapeHtml(exercise.name)}</h2>${badge('neutral', '', `${setsFor(exercise).length}세트`)}</div>${setsFor(exercise).length ? setTable(setsFor(exercise), exercise.name, { removable: true }) : '<p class="meta">기록한 세트가 없습니다.</p>'}</section>`).join('')}</div>`;
+      <div class="card-grid">${session.exercises.map(exercise => { const reference = referenceFor(session, exercise); return `<section class="card"><div class="card-head"><h2 class="card-title">${escapeHtml(exercise.name)}</h2><div class="head-tools">${badge('neutral', '', `${setsFor(exercise).length}세트`)}${reference ? intensityInfo(reference) : ''}</div></div>${setsFor(exercise).length ? setTable(setsFor(exercise), exercise.name, { removable: true, reference }) : '<p class="meta">기록한 세트가 없습니다.</p>'}</section>`; }).join('')}</div>`;
   }
   const sessions = data.sessions.filter(item => item.exercises.some(exercise => setsFor(exercise).length));
   const total = sessions.reduce((n, item) => n + sessionSetCount(item), 0);
