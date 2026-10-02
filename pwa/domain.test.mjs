@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseUtterance, parseAlternatives } from './parser.mjs';
-import { emptyData, startSession, setExercise, addSet, updateSet, cancelSet, restoreSet, finishSession, deleteSetRecord, deleteSession, clearSessionHistory, validateBackup, routineDraftFromSession, saveRoutine, setExercisePart } from './domain.mjs';
+import { emptyData, startSession, setExercise, addSet, updateSet, cancelSet, restoreSet, finishSession, deleteSetRecord, deleteSession, clearSessionHistory, validateBackup, routineDraftFromSession, saveRoutine, setExercisePart, swapExercise, swapRoutineExercise } from './domain.mjs';
 
 test('Korean voice input uses actual reps and current weight', () => {
   assert.deepEqual(parseUtterance('8개', 70), { status: 'ok', reps: 8, weight: 70 });
@@ -119,4 +119,33 @@ test('backups reject non-text session labels and oversized exercise names', () =
   assert.equal(validateBackup(session({ routineName: null })).sessions.length, 1);
   for (const bad of [{ routineName: { html: '<b>' } }, { routineId: 5 }, { routineName: 'x'.repeat(101) }]) assert.throws(() => validateBackup(session(bad)), /운동일지/);
   assert.throws(() => validateBackup(session({}, 'x'.repeat(201))), /운동 항목/);
+});
+
+test('swapping before any set renames the exercise in place', () => {
+  let data = startSession(emptyData(), 's', '2026-10-02T09:00:00Z');
+  data = setExercise(data, 's', { id: 'e1', name: '바벨 스쿼트', kind: 'barbell', weight: 100, target: 5, plannedSets: 4 });
+  data = swapExercise(data, 's', 'e1', { id: 'e2', name: '핵 스쿼트', kind: 'machine', weight: 60 });
+  assert.deepEqual(data.sessions[0].exercises.map(e => [e.id, e.name, e.kind, e.weight, e.target, e.plannedSets]), [['e1', '핵 스쿼트', 'machine', 60, 5, 4]]);
+  assert.equal(data.activeExerciseId, 'e1');
+});
+
+test('swapping after some sets keeps them and adds the substitute right after for the rest', () => {
+  let data = startSession(emptyData(), 's', '2026-10-02T09:00:00Z');
+  data = setExercise(data, 's', { id: 'e1', name: '바벨 스쿼트', kind: 'barbell', weight: 100, target: 5, plannedSets: 4 });
+  data = setExercise(data, 's', { id: 'e3', name: '레그 컬', kind: 'machine', weight: 30, target: 12, plannedSets: 3 });
+  data = addSet(data, 's', 'e1', { id: 'x1', inputId: 'i1', weight: 100, reps: 5, source: 'manual', at: '2026-10-02T09:05:00Z' });
+  data = swapExercise(data, 's', 'e1', { id: 'e2', name: '핵 스쿼트', kind: 'machine', weight: 60 });
+  const session = data.sessions[0];
+  assert.deepEqual(session.exercises.map(e => [e.id, e.name, e.plannedSets, e.sets.length]), [['e1', '바벨 스쿼트', 1, 1], ['e2', '핵 스쿼트', 3, 0], ['e3', '레그 컬', 3, 0]]);
+  assert.equal(data.activeExerciseId, 'e2');
+  assert.doesNotThrow(() => validateBackup(data));
+});
+
+test('the routine can take the substitute in place of the original', () => {
+  let data = saveRoutine(emptyData(), { id: 'r1', title: '하체', exercises: [{ id: 'a', name: '바벨 스쿼트', kind: 'barbell', weight: 100, target: 5, plannedSets: 4 }, { id: 'b', name: '레그 컬', kind: 'machine', weight: 30, target: 12, plannedSets: 3 }] });
+  data = saveRoutine(data, { id: 'r2', title: '상체', exercises: [{ id: 'c', name: '벤치프레스', kind: 'barbell', weight: 80, target: 5, plannedSets: 4 }] });
+  const swapped = swapRoutineExercise(data, 'r1', { name: '바벨 스쿼트', kind: 'barbell' }, { name: '핵 스쿼트', kind: 'machine', weight: 60 });
+  assert.deepEqual(swapped.routines[0].exercises.map(e => [e.name, e.kind, e.weight, e.target, e.plannedSets]), [['핵 스쿼트', 'machine', 60, 5, 4], ['레그 컬', 'machine', 30, 12, 3]]);
+  assert.equal(swapped.selectedRoutineId, 'r2');
+  assert.equal(swapRoutineExercise(data, 'r1', { name: '없는 운동', kind: 'barbell' }, { name: 'x', kind: 'machine', weight: 1 }), null);
 });

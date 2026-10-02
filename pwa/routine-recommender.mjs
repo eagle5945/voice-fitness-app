@@ -227,3 +227,36 @@ export function recommend(answers, lifts = {}) {
   const alternative = buildProgram(alternativeKey, answers, lifts);
   return { primary: { ...primary, reasons: explain(answers, primary) }, alternative: { ...alternative, reasons: explain(answers, alternative) } };
 }
+
+// Substitutes: the same movement first, then related movements; names outside the library fall back to the same body part.
+const RELATED = { squat: ['lunge', 'hinge'], hinge: ['hamIso', 'squat'], lunge: ['squat', 'hinge'], kneeIso: ['squat', 'lunge'], hamIso: ['hinge'], calf: [], pushH: ['chestIso', 'pushV'], chestIso: ['pushH'], pushV: ['shoulderIso', 'pushH'], shoulderIso: ['pushV', 'rearDelt'], rearDelt: ['shoulderIso', 'pullH'], pullV: ['pullH'], pullH: ['pullV', 'rearDelt'], biceps: [], triceps: [], core: [] };
+export const EQUIPMENT_FILTERS = { barbell: ['barbell'], dumbbell: ['dumbbell'], machine: ['machine', 'cable'], bodyweight: ['bodyweight', 'bar'] };
+
+export function substitutesFor(name, { equipment = 'all', avoid = [] } = {}) {
+  const key = String(name ?? '').trim();
+  const own = LIBRARY.find(item => item.name === key);
+  const keep = item => item.name !== key
+    && (equipment === 'all' || EQUIPMENT_FILTERS[equipment].includes(item.equipment))
+    && !item.joints.some(joint => avoid.includes(joint));
+  const view = (item, group) => ({ name: item.name, kind: kindOf(item.equipment), equipment: item.equipment, joints: item.joints, group });
+  if (own) {
+    const same = LIBRARY.filter(item => item.slot === own.slot && keep(item)).map(item => view(item, 'same'));
+    const similar = RELATED[own.slot].flatMap(slot => LIBRARY.filter(item => item.slot === slot && keep(item))).map(item => view(item, 'similar'));
+    return { known: true, part: guessPart(key), list: [...same, ...similar] };
+  }
+  const part = guessPart(key);
+  return { known: false, part, list: part ? LIBRARY.filter(item => guessPart(item.name) === part && keep(item)).map(item => view(item, 'part')) : [] };
+}
+
+// Light defaults for a substitute with no history of its own.
+export const defaultWeight = equipment => (equipment === 'bodyweight' || equipment === 'bar' ? 0 : equipment === 'dumbbell' ? 6 : 20);
+
+// A substitute with no history starts from the current exercise's weight when both are tied to the same lift
+// (barbell bench 100kg → dumbbell bench about 30kg a hand). Otherwise null.
+export function estimateFrom(fromName, fromWeight, toName) {
+  const from = LIBRARY.find(item => item.name === String(fromName ?? '').trim());
+  const to = LIBRARY.find(item => item.name === toName);
+  if (!from?.load || !to?.load || from.load[0] !== to.load[0] || !(fromWeight > 0)) return null;
+  const value = fromWeight / from.load[1] * to.load[1];
+  return to.equipment === 'dumbbell' ? Math.max(2, Math.round(value)) : Math.max(20, roundTo(value, 2.5));
+}

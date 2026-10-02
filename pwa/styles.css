@@ -453,6 +453,14 @@ input::placeholder, textarea::placeholder { color: var(--text-secondary); }
 .recommend-reason { display: flex; align-items: flex-start; gap: 4px; }
 .recommend-reasons { display: grid; gap: 4px; flex: 1; padding-left: 18px; list-style: disc; color: var(--text-secondary); font-size: 14px; }
 .choice-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* Substitutes: filter chips, then groups of exercises with equipment, last record and joint badges */
+.stack-sm { display: grid; gap: 8px; }
+.swap-group { display: grid; gap: 8px; }
+.swap-item { align-items: center; }
+.swap-item .list-main { flex: 1; }
+.swap-item .badge { flex: none; }
+.check-field { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 15px; }
+.check-field input { width: 22px; height: 22px; min-height: 0; flex: none; accent-color: var(--primary); }
 .lift-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .dialog-title { font-size: 20px; font-weight: 700; line-height: 1.35; }
 .confirm-head { display: flex; align-items: center; gap: 12px; }

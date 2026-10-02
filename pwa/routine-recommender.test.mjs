@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { QUESTIONS, LIBRARY, PROGRAM_KEYS, askLifts, pickProgram, buildProgram, exercisesPerDay, recommend } from './routine-recommender.mjs';
+import { QUESTIONS, LIBRARY, PROGRAM_KEYS, askLifts, pickProgram, buildProgram, exercisesPerDay, recommend, substitutesFor, defaultWeight, estimateFrom } from './routine-recommender.mjs';
 import { saveRoutine, emptyData } from './domain.mjs';
 import { guessPart } from './body-parts.mjs';
 import { bigThreeLift } from './records.mjs';
@@ -164,4 +164,32 @@ test('dumbbell start weights are per hand in 1kg steps', () => {
   const program = buildProgram('fullABC', answers({ goal: 'size', equipment: 'dumbbell' }), { squat: 100, bench: 80, deadlift: 140 });
   const weight = name => program.routines.flatMap(r => r.exercises).find(item => item.name === name)?.weight;
   assert.deepEqual([weight('고블릿 스쿼트'), weight('인클라인 덤벨 프레스'), weight('원암 덤벨 로우')], [20, 16, 22]);
+});
+
+test('substitutes list the same movement first, then related ones', () => {
+  const squat = substitutesFor(' 바벨 스쿼트 ');
+  assert.equal(squat.known, true);
+  assert.deepEqual(squat.list.filter(item => item.group === 'same').map(item => item.name), ['프론트 스쿼트', '핵 스쿼트', '레그 프레스', '고블릿 스쿼트']);
+  assert.ok(squat.list.some(item => item.group === 'similar' && item.name === '바벨 힙 쓰러스트'));
+  assert.ok(!squat.list.some(item => item.name === '바벨 스쿼트'));
+  assert.deepEqual(substitutesFor('바벨 스쿼트', { equipment: 'dumbbell', avoid: ['knee'] }).list.map(item => item.name), ['덤벨 루마니안 데드리프트', '덤벨 힙 쓰러스트']);
+  assert.ok(substitutesFor('랫풀다운', { equipment: 'machine' }).list.every(item => ['machine', 'cable'].includes(item.equipment)));
+});
+
+test('names outside the library fall back to the same body part, or nothing', () => {
+  const custom = substitutesFor('스미스 머신 벤치');
+  assert.equal(custom.known, false);
+  assert.equal(custom.part, '가슴');
+  assert.ok(custom.list.length > 0 && custom.list.every(item => item.group === 'part' && guessPart(item.name) === '가슴'));
+  assert.deepEqual(substitutesFor('아무 운동').list, []);
+  assert.deepEqual([defaultWeight('barbell'), defaultWeight('dumbbell'), defaultWeight('cable'), defaultWeight('bar')], [20, 6, 20, 0]);
+});
+
+test('a substitute without history is estimated from the current weight when both share a lift', () => {
+  assert.equal(estimateFrom('벤치프레스', 105, '덤벨 벤치프레스'), 32);
+  assert.equal(estimateFrom('벤치프레스', 100, '오버헤드 프레스'), 60);
+  assert.equal(estimateFrom('바벨 스쿼트', 100, '프론트 스쿼트'), 80);
+  assert.equal(estimateFrom('바벨 스쿼트', 100, '레그 프레스'), null); // machines have no shared scale
+  assert.equal(estimateFrom('벤치프레스', 100, '바벨 스쿼트'), null);
+  assert.equal(estimateFrom('내 운동', 100, '덤벨 벤치프레스'), null);
 });

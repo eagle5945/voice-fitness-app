@@ -39,6 +39,35 @@ export function setExercise(source, sessionId, input) {
   return data;
 }
 
+// Swaps the exercise in the middle of a workout. With no sets yet it is simply renamed; with sets, those stay
+// under the old name (so its history and 1RM stay clean) and the substitute is added right after it for the rest.
+export function swapExercise(source, sessionId, exerciseId, input) {
+  const session = findSession(source, sessionId);
+  const current = session && findExercise(session, exerciseId);
+  if (!current || session.endedAt) throw new Error('진행 중인 종목이 없습니다.');
+  const done = current.sets.filter(set => !set.canceledAt).length;
+  if (!done) return setExercise(source, sessionId, { id: current.id, name: input.name, kind: input.kind, weight: input.weight, target: current.target, ...(current.plannedSets ? { plannedSets: current.plannedSets } : {}) });
+  const remaining = current.plannedSets ? Math.max(current.plannedSets - done, 1) : null;
+  let data = setExercise(source, sessionId, { id: input.id, name: input.name, kind: input.kind, weight: input.weight, target: current.target, ...(remaining ? { plannedSets: remaining } : {}) });
+  const target = findSession(data, sessionId);
+  const added = target.exercises.pop();
+  const old = findExercise(target, exerciseId);
+  if (old.plannedSets) old.plannedSets = done;
+  target.exercises.splice(target.exercises.indexOf(old) + 1, 0, added);
+  return data;
+}
+
+// The routine the workout came from gets the substitute in place of the original, keeping sets and reps.
+export function swapRoutineExercise(source, routineId, from, to) {
+  const routine = source.routines.find(item => item.id === routineId);
+  const index = routine?.exercises.findIndex(item => item.name === from.name && item.kind === from.kind) ?? -1;
+  if (index < 0) return null;
+  const exercises = routine.exercises.map((item, position) => (position === index ? { ...item, name: to.name, kind: to.kind, weight: to.weight } : item));
+  const data = saveRoutine(source, { ...routine, exercises });
+  data.selectedRoutineId = source.selectedRoutineId;
+  return data;
+}
+
 export function saveRoutine(source, routine) {
   if (!routine?.id || !routine.title?.trim() || routine.title.trim().length > 40 || !Array.isArray(routine.exercises) || !routine.exercises.length) throw new Error('루틴 제목과 운동을 하나 이상 입력해주세요.');
   const ids = new Set();

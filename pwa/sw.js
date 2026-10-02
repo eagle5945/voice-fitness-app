@@ -1,5 +1,5 @@
-const CACHE = 'voice-fitness-v46';
-const FILES = ['./', './index.html', './styles.css', './app.mjs?v=20261002-39', './db.mjs', './domain.mjs', './parser.mjs', './dictation.mjs', './csv.mjs', './workout-guide.mjs', './progression.mjs', './records.mjs', './rest.mjs', './plates.mjs', './icons.mjs', './activity.mjs', './body-parts.mjs', './routine-recommender.mjs', './nas-backup.mjs', './fonts/VFSans-Variable.woff2', './manifest.webmanifest', './icon.svg', './icon-192.png'];
+const CACHE = 'voice-fitness-v47';
+const FILES = ['./', './index.html', './styles.css', './app.mjs?v=20261002-40', './db.mjs', './domain.mjs', './parser.mjs', './dictation.mjs', './csv.mjs', './workout-guide.mjs', './progression.mjs', './records.mjs', './rest.mjs', './plates.mjs', './icons.mjs', './activity.mjs', './body-parts.mjs', './routine-recommender.mjs', './nas-backup.mjs', './fonts/VFSans-Variable.woff2', './manifest.webmanifest', './icon.svg', './icon-192.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES)).then(() => self.skipWaiting()));
 });

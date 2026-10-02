@@ -1,4 +1,4 @@
-import { emptyData, startSession, startRoutine, chooseSessionExercise, saveRoutine, removeRoutine, selectRoutine, setExercise, addSet, updateSet, cancelSet, restoreSet, deleteSetRecord, deleteSession, clearSessionHistory, finishSession, validateBackup, routineDraftFromSession, setExercisePart } from './domain.mjs';
+import { emptyData, startSession, startRoutine, chooseSessionExercise, saveRoutine, removeRoutine, selectRoutine, setExercise, addSet, updateSet, cancelSet, restoreSet, deleteSetRecord, deleteSession, clearSessionHistory, finishSession, validateBackup, routineDraftFromSession, setExercisePart, swapExercise, swapRoutineExercise } from './domain.mjs';
 import { loadData, saveData, loadNasBackup, saveNasBackup } from './db.mjs';
 import { previewDictation, confirmDictation, lastSetOf } from './dictation.mjs';
 import { exportWorkoutCsv } from './csv.mjs';
@@ -10,7 +10,7 @@ import { platesFor, plateText } from './plates.mjs';
 import { icon } from './icons.mjs';
 import { activityCalendar, weeklyVolume, weeklyReport, reportSentence } from './activity.mjs';
 import { BODY_PARTS, bodyPartSummary } from './body-parts.mjs';
-import { QUESTIONS, askLifts, recommend } from './routine-recommender.mjs';
+import { QUESTIONS, askLifts, recommend, substitutesFor, defaultWeight, estimateFrom } from './routine-recommender.mjs';
 import { sha256Hex, shouldSend, sendBackup, listBackups, fetchBackup, errorText, backupList } from './nas-backup.mjs';
 
 const main = document.getElementById('app-main');
@@ -263,7 +263,7 @@ function renderHome() {
   return `${pageHead(date, session ? '진행 중인 운동이 있습니다' : '오늘 운동')}
     <div class="layout-split"><div class="col-main stack">${primary}</div>
     <aside class="col-side stack" aria-label="최근 운동과 도움말"><section class="card"><div class="card-head"><h2 class="card-title">최근 운동</h2><button class="icon-button" data-view="history" aria-label="최근 운동 전체 보기">${icon('arrow-right')}</button></div>${recent.length ? `<ul class="list">${recent.map(recentItem).join('')}</ul>` : '<p class="meta">첫 운동을 기록하면 여기에 표시됩니다.</p>'}</section>
-    <details class="card disclosure"><summary><span>홈 화면에 추가하기</span>${icon('chevron-down')}</summary><div class="disclosure-body"><p class="meta">Safari 공유 메뉴에서 ‘홈 화면에 추가’를 선택하세요. 루틴과 기록은 이 기기에 저장되며, 기록 탭에서 JSON으로 백업할 수 있습니다.</p><p class="meta version-label">버전 20261002-39</p></div></details></aside></div>`;
+    <details class="card disclosure"><summary><span>홈 화면에 추가하기</span>${icon('chevron-down')}</summary><div class="disclosure-body"><p class="meta">Safari 공유 메뉴에서 ‘홈 화면에 추가’를 선택하세요. 루틴과 기록은 이 기기에 저장되며, 기록 탭에서 JSON으로 백업할 수 있습니다.</p><p class="meta version-label">버전 20261002-40</p></div></details></aside></div>`;
 }
 
 function renderSetup() {
@@ -296,7 +296,7 @@ function renderActive() {
   return `${pageHead(eyebrow, escapeHtml(exercise.name), '', `<button class="button secondary" data-action="finish" aria-label="운동 종료">${icon('flag')} 종료</button>`)}
     <div class="layout-split"><div class="col-main stack">
     <section class="card target-card" aria-label="현재 목표">
-      <div class="card-head">${guide.currentComplete ? badge('success', 'circle-check', '계획 세트 완료') : badge('primary', '', `${sets.length + 1}세트 차례`)}<div class="head-tools">${badge('neutral', '', kindShort[exercise.kind])}${infoToggle('장비 중량 기준', weightBasis[exercise.kind])}<button class="icon-button" data-action="edit-exercise" aria-label="목표 변경">${icon('pencil')}</button></div></div>
+      <div class="card-head">${guide.currentComplete ? badge('success', 'circle-check', '계획 세트 완료') : badge('primary', '', `${sets.length + 1}세트 차례`)}<div class="head-tools">${badge('neutral', '', kindShort[exercise.kind])}${infoToggle('장비 중량 기준', weightBasis[exercise.kind])}<button class="icon-button" data-action="open-swap" aria-label="대체 운동 찾기">${icon('arrow-left-right')}</button><button class="icon-button" data-action="edit-exercise" aria-label="목표 변경">${icon('pencil')}</button></div></div>
       <dl class="metric-grid"><div><dt>중량</dt><dd>${exercise.weight}<span class="unit">kg</span></dd></div><div><dt>목표 횟수</dt><dd>${exercise.target}<span class="unit">회</span></dd></div><div><dt>세트</dt><dd>${exercise.plannedSets ? `${Math.min(sets.length, exercise.plannedSets)}<span class="unit">/ ${exercise.plannedSets}</span>` : `${sets.length}<span class="unit">세트</span>`}</dd></div></dl>
       ${exercise.plannedSets ? progress(sets.length, exercise.plannedSets) : ''}
       ${targetIntensity ? `<div class="intensity-line"><span class="meta">1RM 대비</span>${intensityBadge(targetIntensity)}${intensityInfo(reference)}</div>` : ''}
@@ -531,6 +531,100 @@ dictationSave.addEventListener('click', async () => {
   }
 });
 
+// Substitute exercises: from the workout screen (swap today, optionally in the routine too) or a routine editor row.
+const swapDialog = document.getElementById('swap-dialog');
+const swapBody = document.getElementById('swap-body');
+const EQUIPMENT_LABEL = { barbell: '바벨', dumbbell: '덤벨', machine: '머신', cable: '케이블', bodyweight: '맨몸', bar: '철봉' };
+const JOINT_LABEL = { lowerBack: '허리', knee: '무릎', shoulder: '어깨' };
+const SWAP_GROUPS = { same: '같은 동작', similar: '비슷한 동작', part: '같은 부위' };
+let swapState = null;
+
+function openSwap(state) {
+  swapState = { equipment: 'all', avoid: [], reflect: false, ...state };
+  renderSwap();
+  swapDialog.showModal();
+  swapBody.querySelector('.swap-item, .chip')?.focus();
+}
+
+// The last weight used for that exact exercise, from any earlier workout.
+function swapStartWeight(item) {
+  const previous = findPreviousExercise(data.sessions, item, swapState.mode === 'active' ? data.activeSessionId : null);
+  const last = previous ? setsFor(previous).at(-1) : null;
+  if (last) return { weight: last.weight, text: `지난번 ${last.weight}kg × ${last.reps}회` };
+  const estimate = estimateFrom(swapState.name, swapState.weight, item.name);
+  if (estimate) return { weight: estimate, text: `현재 무게로 추정 · ${estimate}kg부터` };
+  return { weight: defaultWeight(item.equipment), text: `기록 없음 · ${defaultWeight(item.equipment)}kg부터` };
+}
+
+function renderSwap() {
+  const { name, equipment, avoid, mode, reflect, routineId } = swapState;
+  const result = substitutesFor(name, { equipment, avoid });
+  const chip = (action, value, label, on) => `<button type="button" class="chip ${on ? 'selected' : ''}" aria-pressed="${on}" data-action="${action}" data-value="${value}">${on ? icon('check', { size: 16 }) : ''}<span>${label}</span></button>`;
+  const groups = Object.keys(SWAP_GROUPS).map(group => [group, result.list.filter(item => item.group === group)]).filter(([, items]) => items.length);
+  const empty = !result.known && !result.part ? '이름으로 부위를 알 수 없어 대체 운동을 찾지 못했습니다.' : '조건에 맞는 운동이 없습니다. 필터를 줄여 보세요.';
+  swapBody.innerHTML = `<div class="card-head"><div class="sheet-heading"><p class="eyebrow">대체 운동</p><h2 id="swap-title" class="dialog-title">${escapeHtml(name)} 대신</h2></div><button type="button" class="icon-button" data-action="swap-close" aria-label="대체 운동 닫기">${icon('x')}</button></div>
+    ${result.known || result.part ? `<div class="stack-sm"><div class="chip-group" role="group" aria-label="장비">${[['all', '전체'], ['barbell', '바벨'], ['dumbbell', '덤벨'], ['machine', '머신·케이블'], ['bodyweight', '맨몸']].map(([value, label]) => chip('swap-equipment', value, label, equipment === value)).join('')}</div>
+    <div class="chip-group" role="group" aria-label="관절 부담 제외">${Object.entries(JOINT_LABEL).map(([value, label]) => chip('swap-avoid', value, `${label} 부담 제외`, avoid.includes(value))).join('')}</div></div>` : ''}
+    ${!result.known && result.part ? `<p class="meta">라이브러리에 없는 이름이라 같은 부위(${result.part}) 운동을 보여줍니다.</p>` : ''}
+    ${groups.length ? groups.map(([group, items]) => `<section class="swap-group"><p class="label">${SWAP_GROUPS[group]}</p><div class="choice-list">${items.map(item => { const start = swapStartWeight(item); return `<button type="button" class="choice swap-item" data-action="swap-pick" data-name="${escapeHtml(item.name)}" data-kind="${item.kind}" data-equipment="${item.equipment}" data-weight="${start.weight}"><span class="list-main"><strong>${escapeHtml(item.name)}</strong><span class="meta">${EQUIPMENT_LABEL[item.equipment]} · ${start.text}</span></span>${item.joints.map(joint => badge('warning', '', `${JOINT_LABEL[joint]} 부담`)).join('')}</button>`; }).join('')}</div></section>`).join('') : `<p class="meta">${empty}</p>`}
+    ${mode === 'active' && routineId ? `<label class="check-field"><input type="checkbox" id="swap-reflect" ${reflect ? 'checked' : ''}><span>루틴에도 반영해 다음부터 이 운동으로 하기</span></label>` : ''}`;
+}
+
+async function handleSwap(action, button) {
+  if (action === 'open-swap') {
+    const session = activeSession();
+    const exercise = activeExercise();
+    if (!exercise) return;
+    openSwap({ mode: 'active', name: exercise.name, kind: exercise.kind, weight: exercise.weight, routineId: session.routineId && data.routines.some(item => item.id === session.routineId) ? session.routineId : null });
+    return;
+  }
+  if (action === 'routine-swap') {
+    const row = button.closest('.routine-exercise');
+    const name = row.querySelector('[data-field="name"]').value.trim();
+    if (!name) { report(new Error('운동 이름을 먼저 입력해주세요.')); return; }
+    openSwap({ mode: 'routine', name, kind: row.querySelector('[data-field="kind"]').value, weight: Number(row.querySelector('[data-field="weight"]').value), row });
+    return;
+  }
+  if (!swapState) return;
+  if (action === 'swap-close') { swapDialog.close(); return; }
+  if (action === 'swap-equipment') swapState.equipment = button.dataset.value;
+  else if (action === 'swap-avoid') {
+    const value = button.dataset.value;
+    swapState.avoid = swapState.avoid.includes(value) ? swapState.avoid.filter(item => item !== value) : [...swapState.avoid, value];
+  } else if (action === 'swap-pick') {
+    const pick = { name: button.dataset.name, kind: button.dataset.kind, weight: Number(button.dataset.weight) };
+    if (swapState.mode === 'routine') {
+      const { row } = swapState;
+      row.querySelector('[data-field="name"]').value = pick.name;
+      row.querySelector('[data-field="kind"]').value = pick.kind;
+      row.querySelector('[data-field="weight"]').value = pick.weight;
+      swapDialog.close();
+      row.querySelector('[data-field="name"]').focus();
+      return;
+    }
+    const session = activeSession();
+    const exercise = activeExercise();
+    if (!session || !exercise) { swapDialog.close(); return; }
+    const reflect = Boolean(document.getElementById('swap-reflect')?.checked);
+    let next = swapExercise(data, session.id, exercise.id, { id: id(), ...pick });
+    let routineNote = '';
+    if (reflect && swapState.routineId) {
+      const updated = swapRoutineExercise(next, swapState.routineId, { name: exercise.name, kind: exercise.kind }, pick);
+      if (updated) { next = updated; routineNote = ' 루틴에도 반영했습니다.'; }
+      else routineNote = ' 루틴에서 원래 운동을 찾지 못해 루틴은 그대로입니다.';
+    }
+    await commit(next);
+    swapDialog.close();
+    toast({ text: `${pick.name}(으)로 바꿨습니다.${routineNote}` });
+    return;
+  }
+  const reflectBox = document.getElementById('swap-reflect');
+  if (reflectBox) swapState.reflect = reflectBox.checked;
+  renderSwap();
+  [...swapBody.querySelectorAll(`[data-action="${action}"]`)].find(item => item.dataset.value === button.dataset.value)?.focus();
+}
+swapDialog.addEventListener('close', () => { swapState = null; });
+
 // Routine recommender: five questions (plus optional 5-rep weights), then a program built by fixed rules.
 const recommendDialog = document.getElementById('recommend-dialog');
 const recommendBody = document.getElementById('recommend-body');
@@ -656,7 +750,7 @@ recommendDialog.addEventListener('close', () => { recommendState = null; });
 function routineExerciseRow(item = {}, index = routineExerciseList.children.length) {
   const rowId = item.id ?? id();
   return `<div class="routine-exercise" data-routine-item="${escapeHtml(rowId)}">
-    <div class="section-head"><strong class="routine-row-heading">운동 ${String(index + 1).padStart(2, '0')}</strong><div class="row-tools"><button type="button" class="icon-button" data-action="routine-up" aria-label="이 운동 위로 이동">${icon('arrow-up')}</button><button type="button" class="icon-button" data-action="routine-down" aria-label="이 운동 아래로 이동">${icon('arrow-down')}</button><button type="button" class="icon-button danger" data-action="remove-routine-exercise" aria-label="이 운동 삭제">${icon('trash-2')}</button></div></div>
+    <div class="section-head"><strong class="routine-row-heading">운동 ${String(index + 1).padStart(2, '0')}</strong><div class="row-tools"><button type="button" class="icon-button" data-action="routine-swap" aria-label="이 운동의 대체 운동 찾기">${icon('arrow-left-right')}</button><button type="button" class="icon-button" data-action="routine-up" aria-label="이 운동 위로 이동">${icon('arrow-up')}</button><button type="button" class="icon-button" data-action="routine-down" aria-label="이 운동 아래로 이동">${icon('arrow-down')}</button><button type="button" class="icon-button danger" data-action="remove-routine-exercise" aria-label="이 운동 삭제">${icon('trash-2')}</button></div></div>
     <label class="field"><span class="label">운동 이름</span><input data-field="name" maxlength="60" required placeholder="예: 바벨 스쿼트" value="${escapeHtml(item.name ?? '')}"></label>
     <label class="field"><span class="label">장비</span><select data-field="kind"><option value="machine" ${!item.kind || item.kind === 'machine' ? 'selected' : ''}>머신 · 표시 중량</option><option value="barbell" ${item.kind === 'barbell' ? 'selected' : ''}>바벨 · 바 포함 총중량</option><option value="dumbbell" ${item.kind === 'dumbbell' ? 'selected' : ''}>덤벨 · 한 손 중량</option></select></label>
     <div class="routine-values"><label class="field"><span class="label">중량 (kg)</span><input data-field="weight" type="number" inputmode="decimal" min="0" max="2000" step="0.5" required value="${item.weight ?? 20}"></label><label class="field"><span class="label">목표 횟수</span><input data-field="target" type="number" inputmode="numeric" min="1" max="999" step="1" required value="${item.target ?? 15}"></label><label class="field"><span class="label">세트 수</span><input data-field="plannedSets" type="number" inputmode="numeric" min="1" max="99" step="1" required value="${item.plannedSets ?? 4}"></label></div>
@@ -824,6 +918,7 @@ document.addEventListener('click', async event => {
     }
     else if (action === 'import') backupInput.click();
     else if (action === 'open-recommend' || action.startsWith('recommend-')) await handleRecommend(action, button);
+    else if (action === 'open-swap' || action === 'routine-swap' || action.startsWith('swap-')) await handleSwap(action, button);
     else if (action === 'nas-connect') {
       const token = document.getElementById('nas-token')?.value.trim() ?? '';
       if (token.length < 32) throw new Error('NAS에서 만든 백업 토큰을 그대로 붙여 넣어주세요.');
