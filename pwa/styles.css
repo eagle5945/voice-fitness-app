@@ -235,6 +235,10 @@ input::placeholder, textarea::placeholder { color: var(--text-secondary); }
 .chip.selected { background: var(--primary-soft); border: 2px solid var(--primary); color: var(--primary-hover); font-weight: 700; padding: 0 15px; }
 .plan-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; padding-top: 4px; border-top: 1px solid var(--border); }
 .plan-head .card-title { padding-top: 12px; }
+.plan-head .card-title .badge { margin-left: 4px; vertical-align: middle; }
+/* Suggested next routine in the rotation; a plain highlighted row, not a second call to action */
+.next-routine { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--primary-soft-border); border-radius: var(--radius-control); background: var(--primary-soft); }
+.next-routine .list-main { justify-items: start; }
 .plan-list, .step-list { display: grid; }
 .plan-list li { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
 .plan-list li:last-child { border-bottom: 0; }

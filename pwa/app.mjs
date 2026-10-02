@@ -2,7 +2,7 @@ import { emptyData, startSession, startRoutine, chooseSessionExercise, saveRouti
 import { loadData, saveData, loadNasBackup, saveNasBackup } from './db.mjs';
 import { previewDictation, confirmDictation, lastSetOf } from './dictation.mjs';
 import { exportWorkoutCsv } from './csv.mjs';
-import { workoutGuide } from './workout-guide.mjs';
+import { workoutGuide, routineLastDone, nextRoutine, daysAgo } from './workout-guide.mjs';
 import { findPreviousExercise, suggestProgression } from './progression.mjs';
 import { findRecord, oneRepMaxTrends, sparklinePoints, referenceOneRepMax, intensityOf } from './records.mjs';
 import { typicalRest, lastSetTime, restText } from './rest.mjs';
@@ -101,6 +101,7 @@ function confirmAction({ title, message, confirmLabel, danger = true }) {
 const planSets = routine => routine.exercises.reduce((n, item) => n + (item.plannedSets ?? 0), 0);
 const kindLabel = { barbell: '바벨', dumbbell: '덤벨 한 손', machine: '머신' };
 const selection = () => data.routines.find(item => item.id === selectedRoutineId) ?? data.routines.find(item => item.id === data.selectedRoutineId) ?? data.routines[0];
+const agoText = iso => { const days = daysAgo(iso); return days <= 0 ? '오늘' : days === 1 ? '어제' : `${days}일 전`; };
 const shortDate = iso => new Intl.DateTimeFormat('ko-KR', { month: 'short', day: 'numeric' }).format(new Date(iso));
 const sessionLabel = session => session.routineName ?? session.exercises[0]?.name ?? '자유 운동';
 const sessionSetCount = session => session.exercises.reduce((n, item) => n + setsFor(item).length, 0);
@@ -195,6 +196,10 @@ function renderHome() {
   const routine = selection();
   const recent = data.sessions.filter(item => item.exercises.some(exercise => setsFor(exercise).length)).slice(0, 3);
   const guide = workoutGuide(session, data.activeExerciseId);
+  const next = session ? null : nextRoutine(data.routines, data.sessions);
+  const lastDone = routine ? routineLastDone(data.routines, data.sessions).get(routine.id) : null;
+  const isNext = next?.routine.id === routine?.id;
+  const nextCard = next && !isNext ? `<div class="next-routine"><div class="list-main">${badge('primary', 'repeat', '다음 차례')}<strong>${escapeHtml(next.routine.title)}</strong><span class="meta">${next.lastAt ? `마지막 운동 ${agoText(next.lastAt)}` : '아직 하지 않은 루틴'}</span></div><button class="button secondary" data-action="choose-today-routine" data-id="${escapeHtml(next.routine.id)}">선택</button></div>` : '';
   const date = new Intl.DateTimeFormat('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' }).format(new Date());
   const freeStart = `<button class="button secondary full" data-action="setup-new">${icon('plus')} 루틴 없이 자유 운동 시작</button>`;
   const primary = session ? `<section class="card">
@@ -205,16 +210,17 @@ function renderHome() {
       ${guide.totalSets ? progress(guide.completedSets, guide.totalSets) : ''}
       <button class="button primary full" data-action="${activeExercise() ? 'resume' : 'setup-new'}">운동 이어하기 ${icon('arrow-right')}</button>
     </section>` : data.routines.length ? `<section class="card">
-      <div class="card-head"><h2 class="card-title">오늘의 루틴</h2><button class="icon-button" data-view="routines" aria-label="루틴 관리">${icon('arrow-right')}</button></div>
+      <div class="card-head"><h2 class="card-title">오늘의 루틴</h2><div class="head-tools">${next ? infoToggle('다음 차례 기준', '아직 하지 않은 루틴이 있으면 그 루틴을, 없으면 가장 오래전에 한 루틴을 다음 차례로 보여줍니다. 루틴으로 시작해 세트를 기록한 운동만 셉니다.') : ''}<button class="icon-button" data-view="routines" aria-label="루틴 관리">${icon('arrow-right')}</button></div></div>
+      ${nextCard}
       <div class="chip-group" role="group" aria-label="오늘 할 루틴 선택">${data.routines.map(item => { const on = item.id === routine?.id; return `<button class="chip ${on ? 'selected' : ''}" aria-pressed="${on}" data-action="choose-today-routine" data-id="${escapeHtml(item.id)}">${on ? icon('check', { size: 16 }) : ''}<span>${escapeHtml(item.title)}</span></button>`; }).join('')}</div>
-      <div class="plan-head"><p class="card-title">${escapeHtml(routine.title)}</p><span class="meta">${routine.exercises.length}개 종목 · ${planSets(routine)}세트</span></div>
+      <div class="plan-head"><p class="card-title">${escapeHtml(routine.title)}${isNext ? ` ${badge('primary', 'repeat', '다음 차례')}` : ''}</p><span class="meta">${routine.exercises.length}개 종목 · ${planSets(routine)}세트${lastDone ? ` · 마지막 ${agoText(lastDone)}` : ''}</span></div>
       ${planPreview(routine)}
       <button class="button primary full" data-action="start-routine">${icon('dumbbell')} 운동 시작</button>
     </section>${freeStart}` : `<section class="card empty-state"><span class="empty-icon">${icon('list-checks', { size: 28 })}</span><h2 class="card-title">루틴을 먼저 만들어 주세요</h2><p class="meta">자주 하는 운동을 순서대로 저장하면 운동할 때 하나씩 안내합니다.</p><button class="button primary" data-action="new-routine">${icon('plus')} 첫 루틴 만들기</button></section>${freeStart}`;
   return `${pageHead(date, session ? '진행 중인 운동이 있습니다' : '오늘 운동')}
     <div class="layout-split"><div class="col-main stack">${primary}</div>
     <aside class="col-side stack" aria-label="최근 운동과 도움말"><section class="card"><div class="card-head"><h2 class="card-title">최근 운동</h2><button class="icon-button" data-view="history" aria-label="최근 운동 전체 보기">${icon('arrow-right')}</button></div>${recent.length ? `<ul class="list">${recent.map(recentItem).join('')}</ul>` : '<p class="meta">첫 운동을 기록하면 여기에 표시됩니다.</p>'}</section>
-    <details class="card disclosure"><summary><span>홈 화면에 추가하기</span>${icon('chevron-down')}</summary><div class="disclosure-body"><p class="meta">Safari 공유 메뉴에서 ‘홈 화면에 추가’를 선택하세요. 루틴과 기록은 이 기기에 저장되며, 기록 탭에서 JSON으로 백업할 수 있습니다.</p><p class="meta version-label">버전 20261002-32</p></div></details></aside></div>`;
+    <details class="card disclosure"><summary><span>홈 화면에 추가하기</span>${icon('chevron-down')}</summary><div class="disclosure-body"><p class="meta">Safari 공유 메뉴에서 ‘홈 화면에 추가’를 선택하세요. 루틴과 기록은 이 기기에 저장되며, 기록 탭에서 JSON으로 백업할 수 있습니다.</p><p class="meta version-label">버전 20261002-33</p></div></details></aside></div>`;
 }
 
 function renderSetup() {
