@@ -315,6 +315,14 @@ input::placeholder, textarea::placeholder { color: var(--text-secondary); }
 .danger-zone { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--danger-soft-border); border-radius: var(--radius-card); background: var(--danger-soft); }
 .danger-zone > div { display: grid; gap: 2px; }
 
+/* NAS backup: status line, actions and the restore list inside the backup panel */
+.nas-panel { display: grid; gap: 12px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.nas-status { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.nas-list-wrap { display: grid; gap: 4px; }
+.nas-list { display: grid; }
+.nas-list li { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.nas-list li:last-child { border-bottom: 0; }
+
 /* Activity grass: a picture with a text summary; levels go from light to dark blue */
 .activity-card { --cell: 15px; --cell-gap: 3px; }
 .activity-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }

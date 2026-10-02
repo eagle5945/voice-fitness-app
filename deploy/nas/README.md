@@ -20,7 +20,7 @@ Windows에서 `python scripts/build_nas_package.py`로 생성합니다. 패키�
 
 ## 확인 및 복구
 
-현재 script는 `app.mjs?v=20261001-29`, 캐시는 `voice-fitness-v36`입니다. Safari 새로고침 후 운동 화면의 ‘받아쓰기로 입력’을 확인하세요. 기존 ‘눌러서 말하기’가 보이면 앱을 완전히 닫았다가 다시 여세요. 입력창을 닫으면 저장되지 않고, 문장을 수정하면 이전 미리보기는 무효가 됩니다.
+현재 script는 `app.mjs?v=20261002-30`, 캐시는 `voice-fitness-v37`입니다. Safari 새로고침 후 운동 화면의 ‘받아쓰기로 입력’을 확인하세요. 기존 ‘눌러서 말하기’가 보이면 앱을 완전히 닫았다가 다시 여세요. 입력창을 닫으면 저장되지 않고, 문장을 수정하면 이전 미리보기는 무효가 됩니다.
 
 사이트 파일 롤백은 백업 site 파일들을 같은 위치에 복원합니다. nginx/compose까지 변경했다면 함께 복원하고 web만 재생성합니다. iPhone 기록 DB는 롤백 과정에서 지우지 않습니다.
 
@@ -79,3 +79,17 @@ Windows에서 `python scripts/build_nas_package.py`로 생성합니다. 패키�
 ## 글자 줄이기 · 아이콘화 · 20261001-29
 
 설명 문장을 줄이고 보조 설명은 ⓘ 버튼으로 옮겼습니다. 변경 파일은 app.mjs, styles.css이며 새 파일은 없습니다. 데이터베이스 형식은 그대로입니다.
+
+## NAS 자동 백업 · 20261002-30
+
+같은 Compose 프로젝트(`voice-fitness-pwa`)에 `backup` 서비스(`voice-fitness-backup`, `node:22-alpine`, `127.0.0.1:18086`)를 추가했습니다. nginx는 `/api/backup/`만 이 서버로 넘기고 나머지 `/api/`는 계속 404입니다. 배포 파일은 `site/nas-backup.mjs`와 `backup-server/`(server.mjs, backup-core.mjs, domain.mjs)가 추가됩니다.
+
+처음 설치할 때 앱 폴더에서 다음을 준비합니다(root).
+
+1. 토큰: `secrets/backup-token`에 64자 무작위 16진수를 저장하고 권한을 600으로 둡니다. 컨테이너 사용자가 읽을 수 있게 소유자를 `BACKUP_UID`로 맞춥니다.
+2. 백업 폴더: `auto-backups/`를 만들고 소유자를 `BACKUP_UID:BACKUP_GID`로 맞춥니다.
+3. `.env`에 `BACKUP_UID`, `BACKUP_GID`를 적습니다. 값이 없으면 compose가 시작을 거부합니다.
+4. `docker compose up -d backup`으로 백업 서버만 시작하고, `docker compose up -d --force-recreate web`으로 nginx를 다시 만듭니다. `--remove-orphans`는 쓰지 않습니다.
+5. 토큰 없이 `/api/backup/`을 부르면 401, `/api/stt/status`는 404여야 합니다.
+
+토큰과 `auto-backups/`는 저장소와 `site/`에 두지 않습니다. 롤백은 `docker update --restart=no voice-fitness-backup`, `docker stop voice-fitness-backup` 후 이전 nginx.conf로 web만 다시 만듭니다. `auto-backups/`는 지우지 않습니다.

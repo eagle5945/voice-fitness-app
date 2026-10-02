@@ -14,3 +14,23 @@ services:
       - /var/run
     security_opt:
       - no-new-privileges:true
+  backup:
+    image: node:22-alpine
+    container_name: voice-fitness-backup
+    restart: unless-stopped
+    network_mode: host
+    # Owner of the backup files; set BACKUP_UID and BACKUP_GID in .env next to this file.
+    user: "${BACKUP_UID:?set BACKUP_UID in .env}:${BACKUP_GID:?set BACKUP_GID in .env}"
+    command: ["node", "/app/server.mjs"]
+    environment:
+      BACKUP_PORT: "18086"
+      BACKUP_DIR: /data
+      BACKUP_TOKEN_FILE: /run/secrets/backup-token
+      BACKUP_KEEP: "60"
+    volumes:
+      - ./backup-server:/app:ro
+      - ./auto-backups:/data
+      - ./secrets/backup-token:/run/secrets/backup-token:ro
+    read_only: true
+    security_opt:
+      - no-new-privileges:true

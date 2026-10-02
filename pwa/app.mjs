@@ -1,5 +1,5 @@
 import { emptyData, startSession, startRoutine, chooseSessionExercise, saveRoutine, removeRoutine, selectRoutine, setExercise, addSet, updateSet, cancelSet, restoreSet, deleteSetRecord, deleteSession, clearSessionHistory, finishSession, validateBackup, routineDraftFromSession } from './domain.mjs';
-import { loadData, saveData } from './db.mjs';
+import { loadData, saveData, loadNasBackup, saveNasBackup } from './db.mjs';
 import { previewDictation, confirmDictation } from './dictation.mjs';
 import { exportWorkoutCsv } from './csv.mjs';
 import { workoutGuide } from './workout-guide.mjs';
@@ -9,12 +9,14 @@ import { typicalRest, lastSetTime, restText } from './rest.mjs';
 import { platesFor, plateText } from './plates.mjs';
 import { icon } from './icons.mjs';
 import { activityCalendar, weeklyVolume } from './activity.mjs';
+import { sha256Hex, shouldSend, sendBackup, listBackups, fetchBackup, errorText } from './nas-backup.mjs';
 
 const main = document.getElementById('app-main');
 const dialog = document.getElementById('set-dialog');
 const backupInput = document.getElementById('backup-file');
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 const dateText = iso => new Intl.DateTimeFormat('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(iso));
+const dateTimeText = iso => new Intl.DateTimeFormat('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
 const id = () => crypto.randomUUID();
 
 let data = emptyData();
@@ -26,6 +28,12 @@ let dictationContext = null;
 let dictationPreview = null;
 let dictationSaving = false;
 let fatalError = null;
+// NAS backup settings and status; stored under their own key, never inside data.
+let nas = {};
+let nasBusy = false;
+let nasList = null;
+let nasTimer = null;
+let backupPanelOpen = false;
 // Kept in memory only so declining a suggestion never changes the stored data format.
 const dismissedProgression = new Set();
 
@@ -37,6 +45,7 @@ async function commit(next) {
   await saveData(valid);
   data = valid;
   render();
+  scheduleNasBackup();
 }
 
 // Results are announced in a toast region outside <main>, so re-rendering a screen never replays or drops them.
@@ -197,7 +206,7 @@ function renderHome() {
   return `${pageHead(date, session ? '진행 중인 운동이 있습니다' : '오늘 운동')}
     <div class="layout-split"><div class="col-main stack">${primary}</div>
     <aside class="col-side stack" aria-label="최근 운동과 도움말"><section class="card"><div class="card-head"><h2 class="card-title">최근 운동</h2><button class="icon-button" data-view="history" aria-label="최근 운동 전체 보기">${icon('arrow-right')}</button></div>${recent.length ? `<ul class="list">${recent.map(recentItem).join('')}</ul>` : '<p class="meta">첫 운동을 기록하면 여기에 표시됩니다.</p>'}</section>
-    <details class="card disclosure"><summary><span>홈 화면에 추가하기</span>${icon('chevron-down')}</summary><div class="disclosure-body"><p class="meta">Safari 공유 메뉴에서 ‘홈 화면에 추가’를 선택하세요. 루틴과 기록은 이 기기에 저장되며, 기록 탭에서 JSON으로 백업할 수 있습니다.</p><p class="meta version-label">버전 20261001-29</p></div></details></aside></div>`;
+    <details class="card disclosure"><summary><span>홈 화면에 추가하기</span>${icon('chevron-down')}</summary><div class="disclosure-body"><p class="meta">Safari 공유 메뉴에서 ‘홈 화면에 추가’를 선택하세요. 루틴과 기록은 이 기기에 저장되며, 기록 탭에서 JSON으로 백업할 수 있습니다.</p><p class="meta version-label">버전 20261002-30</p></div></details></aside></div>`;
 }
 
 function renderSetup() {
@@ -262,7 +271,88 @@ function renderHistory() {
     ${sessions.length ? `${activitySection()}${volumeSection()}` : ''}
     <section class="section" aria-labelledby="sessions-title"><div class="section-head"><h2 id="sessions-title" class="section-title">운동 회차</h2></div>${sessions.length ? sessionTable(sessions) : `<div class="card empty-state"><span class="empty-icon">${icon('chart-column', { size: 28 })}</span><h3 class="card-title">아직 기록이 없습니다</h3><p class="meta">첫 운동을 기록하면 여기에 표시됩니다.</p><button class="button primary" data-view="home">${icon('dumbbell')} 운동하러 가기</button></div>`}</section>
     ${trends.length ? `<section class="section" aria-labelledby="records-title"><div class="section-head"><h2 id="records-title" class="section-title">종목별 추정 1RM</h2><div class="head-tools"><span class="meta">${trends.length}종목</span>${infoToggle('추정 1RM 계산 방법', '추정 1RM = 중량 × (1 + 횟수 ÷ 30). 같은 종목·장비끼리 비교합니다.')}</div></div>${recordTable(trends.slice(0, 6))}${trends.length > 6 ? `<details class="disclosure records-more"><summary><span>나머지 ${trends.length - 6}개 종목</span>${icon('chevron-down')}</summary>${recordTable(trends.slice(6))}</details>` : ''}</section>` : ''}
-    <details class="card disclosure backup-panel"><summary><span>내보내기 · 복원 · 초기화</span>${icon('chevron-down')}</summary><div class="disclosure-body stack"><p class="meta">루틴과 기록은 이 기기에 저장됩니다. CSV는 조회용이고, JSON 백업으로 루틴까지 복원할 수 있습니다.</p><div class="button-wrap"><button class="button secondary" data-action="export-csv">${icon('download')} CSV 내려받기</button><button class="button secondary" data-action="export">${icon('download')} JSON 백업</button><button class="button secondary" data-action="import">${icon('upload')} JSON 복원</button></div><p class="meta">마지막 JSON 백업: ${data.lastBackupAt ? dateText(data.lastBackupAt) : '없음'}</p><div class="danger-zone"><div><p class="card-title">전체 운동 기록 삭제</p><p class="meta">운동 기록과 진행 중인 운동을 지웁니다. 저장된 루틴은 유지됩니다.</p></div><button class="button danger" data-action="clear-history" ${data.sessions.length ? '' : 'disabled'}>${icon('trash-2')} 전체 삭제</button></div></div></details>`;
+    <details class="card disclosure backup-panel" ${backupPanelOpen ? 'open' : ''}><summary><span>백업 · 복원 · 초기화</span>${icon('chevron-down')}</summary><div class="disclosure-body stack">${nasPanel()}<p class="meta">루틴과 기록은 이 기기에 저장됩니다. CSV는 조회용이고, JSON 백업으로 루틴까지 복원할 수 있습니다.</p><div class="button-wrap"><button class="button secondary" data-action="export-csv">${icon('download')} CSV 내려받기</button><button class="button secondary" data-action="export">${icon('download')} JSON 백업</button><button class="button secondary" data-action="import">${icon('upload')} JSON 복원</button></div><p class="meta">마지막 JSON 백업: ${data.lastBackupAt ? dateText(data.lastBackupAt) : '없음'}</p><div class="danger-zone"><div><p class="card-title">전체 운동 기록 삭제</p><p class="meta">운동 기록과 진행 중인 운동을 지웁니다. 저장된 루틴은 유지됩니다.</p></div><button class="button danger" data-action="clear-history" ${data.sessions.length ? '' : 'disabled'}>${icon('trash-2')} 전체 삭제</button></div></div></details>`;
+}
+
+function nasPanel() {
+  const head = `<div class="card-head"><p class="card-title">NAS 자동 백업</p>${infoToggle('NAS 자동 백업 안내', '운동을 마칠 때, 루틴이나 기록을 바꿀 때, 앱을 열 때 바뀐 내용이 있으면 NAS로 보냅니다. 운동 중에는 보내지 않습니다. 토큰은 이 기기에만 저장되고 JSON 백업 파일에는 들어가지 않습니다.')}</div>`;
+  if (!nas.token) return `<section id="nas-panel" class="nas-panel">${head}<label class="field"><span class="label">백업 토큰</span><input id="nas-token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false"></label><button class="button primary" data-action="nas-connect" ${nasBusy ? 'disabled' : ''}>${icon('check')} 연결</button></section>`;
+  const status = nasBusy ? badge('neutral', '', '백업 중')
+    : nas.lastError ? badge('warning', 'triangle-alert', '백업 실패')
+    : nas.lastSentAt ? badge('success', 'circle-check', '백업됨') : badge('neutral', '', '백업 전');
+  const detail = nas.lastError ? escapeHtml(nas.lastError) : nas.lastSentAt ? `마지막 백업 ${dateTimeText(nas.lastSentAt)}` : '아직 NAS에 보낸 백업이 없습니다.';
+  const list = nasList ? `<div class="nas-list-wrap"><div class="card-head"><p class="label">NAS 백업 ${nasList.length}개</p><button class="icon-button" data-action="nas-list-close" aria-label="백업 목록 닫기">${icon('x')}</button></div>${nasList.length ? `<ul class="nas-list">${nasList.map(item => `<li><span class="list-main"><strong>${dateTimeText(item.savedAt)}</strong><span class="meta">루틴 ${item.routines}개 · 세트 ${item.sets}개</span></span><button class="button secondary" data-action="nas-restore" data-id="${escapeHtml(item.id)}">${icon('rotate-ccw')} 복원</button></li>`).join('')}</ul>` : '<p class="meta">NAS에 저장된 백업이 없습니다.</p>'}</div>` : '';
+  return `<section id="nas-panel" class="nas-panel">${head}<div class="nas-status">${status}<span class="meta">${detail}</span></div><div class="button-wrap"><button class="button secondary" data-action="nas-now" ${nasBusy ? 'disabled' : ''}>${icon('upload')} 지금 백업</button><button class="button secondary" data-action="nas-list" ${nasBusy ? 'disabled' : ''}>${icon('download')} NAS에서 복원</button><button class="text-button" data-action="nas-disconnect">연결 해제</button></div>${list}</section>`;
+}
+
+// Only the NAS panel is redrawn, so a background backup never resets scroll or focus elsewhere.
+function renderNasPanel() {
+  const panel = document.getElementById('nas-panel');
+  if (!panel) return;
+  const focused = panel.contains(document.activeElement) ? document.activeElement.dataset?.action : null;
+  panel.outerHTML = nasPanel();
+  if (focused) document.querySelector(`#nas-panel [data-action="${focused}"]`)?.focus();
+}
+
+async function updateNas(patch) {
+  nas = { ...nas, ...patch };
+  await saveNasBackup(nas);
+  renderNasPanel();
+}
+
+function scheduleNasBackup(delay = 3000) {
+  if (!nas.token) return;
+  clearTimeout(nasTimer);
+  nasTimer = setTimeout(() => runNasBackup('change').catch(() => {}), delay);
+}
+
+async function runNasBackup(reason, { confirmShrink = false } = {}) {
+  if (!nas.token || nasBusy) return;
+  if (reason === 'manual' && !navigator.onLine) { report(new Error('오프라인 상태입니다. 연결된 뒤 다시 시도하세요.')); return; }
+  const text = JSON.stringify(data);
+  const hash = await sha256Hex(text);
+  // Back to what the NAS already has (for example after restoring): any earlier warning no longer applies.
+  if (reason !== 'manual' && hash === nas.lastHash) { if (nas.lastError || nas.declinedHash) await updateNas({ lastError: null, declinedHash: null }); return; }
+  // A shrink the user already declined is not asked about again until the data changes.
+  if (reason !== 'manual' && hash === nas.declinedHash) return;
+  if (!shouldSend({ reason, hash, lastHash: nas.lastHash, activeSessionId: data.activeSessionId, online: navigator.onLine })) return;
+  nasBusy = true;
+  renderNasPanel();
+  let result;
+  try { result = await sendBackup(text, nas.token, { confirmShrink }); }
+  finally { nasBusy = false; }
+  if (result.status === 'saved' || result.status === 'unchanged') {
+    await updateNas({ lastSentAt: new Date().toISOString(), lastHash: hash, lastError: null, declinedHash: null });
+    if (reason === 'manual') toast({ text: result.status === 'saved' ? `NAS에 백업했습니다. 세트 ${result.body.sets}개` : 'NAS 백업이 이미 최신입니다.' });
+    return;
+  }
+  if (result.status === 'shrink') {
+    renderNasPanel();
+    const { previous, incoming } = result.body;
+    const ok = await confirmAction({ title: 'NAS 백업보다 기록이 줄었습니다', message: `NAS 최신 백업은 세트 ${previous.sets}개, 이 기기는 세트 ${incoming.sets}개입니다. 기기 기록이 지워진 거라면 취소하고 ‘NAS에서 복원’을 쓰세요. 이전 백업은 NAS에 남습니다.`, confirmLabel: '이 상태로 백업' });
+    if (ok) { await runNasBackup('manual', { confirmShrink: true }); return; }
+    await updateNas({ declinedHash: hash, lastError: '기록이 크게 줄어 자동 백업을 멈췄습니다.' });
+    return;
+  }
+  const message = errorText(result);
+  // Automatic failures toast once a day per reason; the status line always shows the latest one.
+  const today = new Date().toDateString();
+  if (reason === 'manual' || nas.lastError !== message || nas.lastErrorDay !== today) toast({ kind: 'warning', text: message });
+  await updateNas({ lastError: message, lastErrorDay: today });
+}
+
+async function restoreFromNas(backupId) {
+  const result = await fetchBackup(nas.token, backupId);
+  if (result.status !== 'ok') throw new Error(errorText(result));
+  const imported = validateBackup(result.body);
+  const count = imported.sessions.reduce((n, item) => n + item.exercises.reduce((sum, exercise) => sum + exercise.sets.length, 0), 0);
+  if (!await confirmAction({ title: 'NAS 백업으로 교체할까요?', message: `${imported.routines.length}개 루틴과 ${count}개 세트가 포함된 백업입니다. 현재 기기의 루틴과 기록을 모두 이 백업으로 교체합니다.`, confirmLabel: '백업으로 교체' })) return;
+  selectedRoutineId = imported.selectedRoutineId ?? imported.routines[0]?.id ?? null;
+  nasList = null;
+  await commit(imported);
+  historySessionId = null;
+  render();
+  toast({ text: `${count}개 세트를 복원했습니다.` });
 }
 
 function render() {
@@ -526,6 +616,34 @@ document.addEventListener('click', async event => {
       toast({ kind: 'info', text: `${csv ? 'CSV' : 'JSON 백업'} 파일 내보내기를 시작했습니다. iPhone 파일 앱에 저장됐는지 확인하세요.` });
     }
     else if (action === 'import') backupInput.click();
+    else if (action === 'nas-connect') {
+      const token = document.getElementById('nas-token')?.value.trim() ?? '';
+      if (token.length < 32) throw new Error('NAS에서 만든 백업 토큰을 그대로 붙여 넣어주세요.');
+      // The button is disabled in place so a failed check keeps the pasted token in the field.
+      button.disabled = true;
+      let result;
+      try { result = await listBackups(token); } finally { button.disabled = false; }
+      if (result.status !== 'ok') throw new Error(errorText(result));
+      await updateNas({ token, lastHash: null, lastError: null, declinedHash: null });
+      toast({ kind: 'info', text: 'NAS에 연결했습니다. 지금 백업합니다.' });
+      await runNasBackup('manual');
+    }
+    else if (action === 'nas-now') await runNasBackup('manual');
+    else if (action === 'nas-list') {
+      const result = await listBackups(nas.token);
+      if (result.status !== 'ok') throw new Error(errorText(result));
+      nasList = result.body;
+      renderNasPanel();
+    }
+    else if (action === 'nas-list-close') { nasList = null; renderNasPanel(); }
+    else if (action === 'nas-restore') await restoreFromNas(button.dataset.id);
+    else if (action === 'nas-disconnect') {
+      if (!await confirmAction({ title: 'NAS 연결을 해제할까요?', message: '이 기기에서 백업 토큰을 지웁니다. NAS에 있는 백업은 그대로 남습니다.', confirmLabel: '연결 해제' })) return;
+      clearTimeout(nasTimer);
+      nas = {}; nasList = null;
+      await saveNasBackup(nas);
+      renderNasPanel();
+    }
   } catch (error) { report(error); }
 });
 
@@ -607,8 +725,12 @@ backupInput.addEventListener('change', async () => {
   } catch (error) { report(error); }
 });
 
+// toggle does not bubble, so it is caught on the way down.
+document.addEventListener('toggle', event => { if (event.target.classList?.contains('backup-panel')) backupPanelOpen = event.target.open; }, true);
+
 // Preserve text, focus and preview when iOS switches keyboard modes or connectivity.
 window.addEventListener('online', renderHeader);
+window.addEventListener('online', () => scheduleNasBackup(1000));
 window.addEventListener('offline', renderHeader);
 
 document.addEventListener('click', event => {
@@ -631,6 +753,9 @@ async function boot() {
     selectedRoutineId = data.selectedRoutineId ?? data.routines[0]?.id ?? null;
     if (navigator.storage?.persist && !(await navigator.storage.persisted())) navigator.storage.persist().catch(() => {});
     render();
+    nas = await loadNasBackup().catch(() => ({}));
+    renderNasPanel();
+    scheduleNasBackup(2000);
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then(registration => registration.update().catch(() => {})).catch(() => {});
   } catch (error) { fatalError = error; render(); }
 }

@@ -33,3 +33,13 @@ export async function saveData(data) {
   const valid = validateBackup(data);
   await transaction('readwrite', store => store.put(valid, 'main'));
 }
+
+// NAS backup settings sit beside the records under their own key, so JSON backups never contain the token.
+export async function loadNasBackup() {
+  const stored = await transaction('readonly', store => store.get('nasBackup'));
+  return stored && typeof stored === 'object' ? stored : {};
+}
+
+export async function saveNasBackup(value) {
+  await transaction('readwrite', store => store.put(value, 'nasBackup'));
+}

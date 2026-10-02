@@ -37,3 +37,6 @@ backups/
 .omc/
 .DS_Store
 Thumbs.db
+
+# NAS automatic backups (personal records)
+auto-backups/
