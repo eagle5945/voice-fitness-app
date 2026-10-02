@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { estimateOneRepMax, findRecord, oneRepMaxTrends, sparklinePoints, referenceOneRepMax, intensityOf } from './records.mjs';
+import { estimateOneRepMax, findRecord, oneRepMaxTrends, sparklinePoints, referenceOneRepMax, intensityOf, recordSets } from './records.mjs';
 
 let serial = 0;
 const set = (weight, reps, extra = {}) => ({ id: `s${++serial}`, inputId: `i${serial}`, weight, reps, source: 'manual', at: '2026-09-30T10:00:00.000Z', updatedAt: null, canceledAt: null, ...extra });
@@ -96,4 +96,16 @@ test('intensity is weight over the reference with our six bands', () => {
   assert.deepEqual(intensityOf(105, 100), { percent: 105, label: '최대', tier: 6 });
   assert.equal(intensityOf(100, null), null);
   assert.equal(intensityOf(0, 100), null);
+});
+
+test('recordSets lists the sets that were records when logged', () => {
+  const s = (id, at, sets, name = '스쿼트') => ({ id, startedAt: at, exercises: [{ name, kind: 'barbell', weight: 0, target: 5, sets: sets.map(([weight, reps, minute, canceled]) => ({ weight, reps, at: new Date(Date.parse(at) + minute * 60_000).toISOString(), canceledAt: canceled ? at : null })) }] });
+  const sessions = [
+    s('3', '2026-10-01T09:00:00Z', [[100, 5, 1], [105, 5, 2], [104, 5, 3], [200, 5, 4, true]]),
+    s('2', '2026-09-28T09:00:00Z', [[100, 3, 1]], '벤치프레스'),
+    s('1', '2026-09-25T09:00:00Z', [[100, 4, 1], [110, 1, 2]]),
+  ];
+  const records = recordSets(sessions);
+  // Session 1 is the first for squat and the only bench session celebrates nothing; 100x5 beats 113.3, 105x5 beats 116.7.
+  assert.deepEqual(records.map(r => [r.name, r.value, r.previous]), [['스쿼트', 116.7, 113.3], ['스쿼트', 122.5, 116.7]]);
 });

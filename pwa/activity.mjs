@@ -1,3 +1,5 @@
+import { recordSets } from './records.mjs';
+
 // Daily and weekly activity for the history tab. Weeks start on Monday, as Korean calendars do.
 const DAY = 86_400_000;
 
@@ -63,4 +65,41 @@ export function weeklyVolume(sessions, { now = Date.now(), weeks = 8, timeZone }
   const thisWeek = rows.at(-1).volume;
   const change = lastWeekToDate > 0 ? Math.round((thisWeek - lastWeekToDate) / lastWeekToDate * 100) : null;
   return { rows, thisWeek, lastWeekToDate, change };
+}
+
+// Workout time runs from the start to the last set, so forgetting to press 종료 does not inflate it.
+const sessionMinutes = session => {
+  const last = Math.max(...session.exercises.flatMap(exercise => exercise.sets.filter(set => !set.canceledAt).map(set => Date.parse(set.at))));
+  return Math.max(0, Math.round((last - Date.parse(session.startedAt)) / 60_000));
+};
+
+// This week (Monday to today) against the same weekdays of last week, so early in the week is not read as a drop.
+export function weeklyReport(sessions, { now = Date.now(), timeZone } = {}) {
+  const today = dayKey(now, timeZone);
+  const monday = keyToUtc(today) - weekday(today) * DAY;
+  const ranges = { thisWeek: [utcToKey(monday), today], lastWeek: [utcToKey(monday - 7 * DAY), utcToKey(keyToUtc(today) - 7 * DAY)] };
+  const inRange = (value, [from, to]) => { const key = dayKey(value, timeZone); return key >= from && key <= to; };
+  const done = sessions.filter(session => session.exercises.some(exercise => exercise.sets.some(set => !set.canceledAt)));
+  const records = recordSets(sessions);
+  const days = dailyActivity(sessions, timeZone);
+  const summarize = range => {
+    const list = done.filter(session => inRange(session.startedAt, range));
+    let sets = 0;
+    let volume = 0;
+    for (const [key, day] of days) if (key >= range[0] && key <= range[1]) { sets += day.sets; volume += day.volume; }
+    return { workouts: list.length, minutes: list.reduce((n, session) => n + sessionMinutes(session), 0), sets, volume, records: records.filter(record => inRange(record.at, range)).length };
+  };
+  const thisWeek = summarize(ranges.thisWeek);
+  const lastWeek = summarize(ranges.lastWeek);
+  const volumeChange = lastWeek.volume > 0 ? Math.round((thisWeek.volume - lastWeek.volume) / lastWeek.volume * 100) : null;
+  return { thisWeek, lastWeek, volumeChange, newRecords: records.filter(record => inRange(record.at, ranges.thisWeek)) };
+}
+
+// One plain sentence built from the numbers; no advice beyond what the numbers say.
+export function reportSentence({ thisWeek, lastWeek, volumeChange }) {
+  if (!thisWeek.workouts) return lastWeek.workouts ? `이번 주는 아직 운동 기록이 없습니다. 지난주 같은 기간에는 ${lastWeek.workouts}번 운동했습니다.` : '이번 주는 아직 운동 기록이 없습니다.';
+  const compare = volumeChange === null ? '지난주 같은 기간에는 기록이 없었습니다.'
+    : volumeChange === 0 ? '볼륨은 지난주 같은 기간과 같습니다.'
+    : `볼륨은 지난주 같은 기간보다 ${Math.abs(volumeChange)}% ${volumeChange > 0 ? '늘었습니다' : '줄었습니다'}.`;
+  return `이번 주 ${thisWeek.workouts}번 운동했습니다. ${compare}${thisWeek.records ? ` 신기록 ${thisWeek.records}개를 세웠습니다.` : ''}`;
 }

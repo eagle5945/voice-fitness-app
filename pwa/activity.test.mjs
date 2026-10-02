@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { dayKey, setVolume, activityLevel, activityCalendar, weeklyVolume } from './activity.mjs';
+import { dayKey, setVolume, activityLevel, activityCalendar, weeklyVolume, weeklyReport, reportSentence } from './activity.mjs';
 
 const zone = 'Asia/Seoul';
 let serial = 0;
@@ -66,4 +66,33 @@ test('weekly volume compares this week with the same weekdays of last week', () 
   assert.equal(result.lastWeekToDate, 1000);
   assert.equal(result.change, -20);
   assert.equal(weeklyVolume([], { now, timeZone: zone }).change, null);
+});
+
+test('weekly report compares this week with the same weekdays of last week', () => {
+  const lift = (sets, name = '벤치프레스') => ({ ...exercise(sets), name });
+  const withStart = (kst, exercises) => ({ ...session(exercises), startedAt: new Date(`${kst}+09:00`).toISOString() });
+  const sessions = [
+    // This week: Tuesday (60x10 beats last week's 60x8, then 70x5 beats that) and Thursday morning.
+    withStart('2026-09-29T18:50:00', [lift([set('2026-09-29T19:00:00', 60, 10), set('2026-09-29T19:30:00', 70, 5)])]),
+    withStart('2026-10-01T07:40:00', [lift([set('2026-10-01T08:00:00', 50, 10)])]),
+    // Last week: Monday counts, Saturday is after last Thursday and does not.
+    withStart('2026-09-21T18:30:00', [lift([set('2026-09-21T19:00:00', 60, 8)])]),
+    withStart('2026-09-26T10:00:00', [lift([set('2026-09-26T10:10:00', 40, 10)])]),
+    // A forgotten finish does not stretch the time: start to last set only.
+    { ...withStart('2026-09-22T19:00:00', [lift([set('2026-09-22T19:20:00', 30, 10)], '스쿼트')]), endedAt: new Date('2026-09-23T03:00:00+09:00').toISOString() },
+  ];
+  const report = weeklyReport(sessions, { now, timeZone: zone });
+  assert.deepEqual(report.thisWeek, { workouts: 2, minutes: 40 + 20, sets: 3, volume: 600 + 350 + 500, records: 2 });
+  assert.deepEqual(report.lastWeek, { workouts: 2, minutes: 30 + 20, sets: 2, volume: 480 + 300, records: 0 });
+  assert.equal(report.volumeChange, 86);
+  assert.equal(report.newRecords[0].name, '벤치프레스');
+  assert.equal(reportSentence(report), '이번 주 2번 운동했습니다. 볼륨은 지난주 같은 기간보다 86% 늘었습니다. 신기록 2개를 세웠습니다.');
+});
+
+test('report sentences cover empty weeks and missing comparisons', () => {
+  const empty = { workouts: 0, minutes: 0, sets: 0, volume: 0, records: 0 };
+  assert.equal(reportSentence({ thisWeek: empty, lastWeek: empty, volumeChange: null }), '이번 주는 아직 운동 기록이 없습니다.');
+  assert.equal(reportSentence({ thisWeek: empty, lastWeek: { ...empty, workouts: 3 }, volumeChange: null }), '이번 주는 아직 운동 기록이 없습니다. 지난주 같은 기간에는 3번 운동했습니다.');
+  assert.equal(reportSentence({ thisWeek: { ...empty, workouts: 1, volume: 500 }, lastWeek: empty, volumeChange: null }), '이번 주 1번 운동했습니다. 지난주 같은 기간에는 기록이 없었습니다.');
+  assert.equal(reportSentence({ thisWeek: { ...empty, workouts: 1, volume: 500 }, lastWeek: { ...empty, workouts: 1, volume: 500 }, volumeChange: 0 }), '이번 주 1번 운동했습니다. 볼륨은 지난주 같은 기간과 같습니다.');
 });

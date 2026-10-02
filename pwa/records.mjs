@@ -40,6 +40,25 @@ export function oneRepMaxTrends(sessions, limit = 12) {
     .sort((a, b) => order.get(a.points.at(-1).sessionId) - order.get(b.points.at(-1).sessionId));
 }
 
+// Every set that was a record when it was logged, by the same rule as findRecord:
+// it must beat all earlier sets of the lift, and an earlier session must already have one.
+export function recordSets(sessions) {
+  const entries = sessions.flatMap(session => session.exercises.flatMap(exercise => validSets(exercise).map(set => ({ session, exercise, set, value: estimateOneRepMax(set.weight, set.reps) }))))
+    .filter(entry => entry.value)
+    .sort((a, b) => Date.parse(a.set.at) - Date.parse(b.set.at));
+  const seen = [];
+  const records = [];
+  for (const entry of entries) {
+    let lift = seen.find(item => sameExercise(item.exercise, entry.exercise));
+    if (!lift) seen.push(lift = { exercise: entry.exercise, best: 0, sessions: new Set() });
+    const earlier = [...lift.sessions].some(id => id !== entry.session.id);
+    if (earlier && entry.value > lift.best) records.push({ at: entry.set.at, name: entry.exercise.name, kind: entry.exercise.kind, value: entry.value, previous: lift.best });
+    lift.best = Math.max(lift.best, entry.value);
+    lift.sessions.add(entry.session.id);
+  }
+  return records;
+}
+
 // Best estimate from sessions started before this one, so today's sets never move their own reference.
 export function referenceOneRepMax(sessions, exercise, session) {
   const start = Date.parse(session.startedAt);

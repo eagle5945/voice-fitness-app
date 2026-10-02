@@ -351,6 +351,14 @@ input::placeholder, textarea::placeholder { color: var(--text-secondary); }
 .heat-legend .meta:last-child { margin-left: 4px; }
 
 /* Weekly volume */
+.report-sentence { font-size: 16px; font-weight: 500; }
+.report-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
+.report-grid > div { display: grid; gap: 2px; min-width: 0; }
+.report-grid dt { font-size: 14px; color: var(--text-secondary); font-weight: 500; }
+.report-grid dd { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.report-records { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border); }
+.report-records li { display: flex; align-items: flex-start; gap: 8px; }
+.report-records .icon { flex: none; margin-top: 2px; color: var(--warning); }
 .volume-headline { display: grid; gap: 2px; }
 .volume-change { display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 600; color: var(--text); }
 .volume-change .icon { color: var(--primary); }
@@ -490,6 +498,7 @@ input::placeholder, textarea::placeholder { color: var(--text-secondary); }
   .card { padding: 20px; }
   .card-grid { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
   .stat-cards { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+  .report-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .toast-region { left: auto; right: var(--gutter); bottom: 24px; width: 380px; }
   .dialog { width: calc(100% - 48px); max-width: 480px; margin: auto; border-radius: var(--radius-card); max-height: calc(100dvh - 48px); }
   .dialog-wide { max-width: 640px; }
