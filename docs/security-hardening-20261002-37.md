@@ -20,7 +20,7 @@ ACL이 없는(Linux mode) 파일 중 누구나 쓸 수 있던 것을 정리했�
 - NAS 복원 목록: `backupList()`(nas-backup.mjs)로 id 패턴·날짜를 검사하고 루틴·세트 수를 숫자로 바꾼 뒤 화면에 넣음
 - 백업 서버: 캐시 파일 `index.json`에서 읽은 id 중 패턴에 맞는 것만 사용(읽기·삭제 경로에 쓰이므로)
 - 백업 컨테이너: `network_mode: host` 대신 자체 bridge 네트워크, 포트는 `127.0.0.1:18086`에만 공개(NAS의 localhost 서비스에 접근 불가). `cap_drop: ALL` 추가. 서버는 컨테이너 안에서 `BACKUP_HOST=0.0.0.0`
-- NAS에 남은 옛 STT 파일(`api/`, `setup-stt-secrets.sh`)은 root로 백업 폴더에 옮김(삭제는 사용자가 판단). `state/`는 내용 확인 후 결정
+- NAS에 남은 옛 STT 파일(`api/`, `setup-stt-secrets.sh`, `state/registration.json`)은 사용 중인 컨테이너가 없음을 확인한 뒤 root 전용 보관 폴더 `backups/stt-leftovers-20261002/`(700)로 옮김. 삭제는 사용자가 판단
 
 ## 하지 않은 것
 
