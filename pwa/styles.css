@@ -356,6 +356,10 @@ input::placeholder, textarea::placeholder { color: var(--text-secondary); }
 .report-grid > div { display: grid; gap: 2px; min-width: 0; }
 .report-grid dt { font-size: 14px; color: var(--text-secondary); font-weight: 500; }
 .report-grid dd { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.big3-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.big3-grid > div { display: grid; gap: 2px; min-width: 0; }
+.big3-grid dt { font-size: 14px; color: var(--text-secondary); font-weight: 500; }
+.big3-grid dd { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .report-records { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border); }
 .report-records li { display: flex; align-items: flex-start; gap: 8px; }
 .report-records .icon { flex: none; margin-top: 2px; color: var(--warning); }

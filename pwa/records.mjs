@@ -88,6 +88,35 @@ export function intensityOf(weight, reference) {
   return { percent, label: INTENSITY_LEVELS[index].label, tier: INTENSITY_LEVELS.length - index };
 }
 
+// Barbell back squat, bench press and deadlift only; variations are a different lift.
+const BIG_THREE = [
+  { key: 'squat', label: '스쿼트', match: /스쿼트/, exclude: /프론트|불가리안|스플릿|핵|고블릿|스미스|점프|박스|오버헤드|저처|피스톨|와이드/ },
+  { key: 'bench', label: '벤치프레스', match: /벤치프레스|^벤치$/, exclude: /인클라인|디클라인|클로즈|내로우|스미스|플로어/ },
+  { key: 'deadlift', label: '데드리프트', match: /데드리프트|^데드$/, exclude: /루마니안|스티프|rdl|트랩|헥스|싱글|원레그|데피싯|랙풀/ },
+];
+
+export function bigThreeLift(exercise) {
+  if (exercise?.kind !== 'barbell') return null;
+  const name = String(exercise.name ?? '').toLowerCase().replace(/\s+/g, '').replace(/^(?:바벨|백|컨벤셔널|스모)/, '');
+  return BIG_THREE.find(lift => lift.match.test(name) && !lift.exclude.test(name))?.key ?? null;
+}
+
+// Best estimated 1RM per lift from sets done before `until`, and their sum. A lift without sets is left out of the total.
+export function bigThree(sessions, { until = Infinity } = {}) {
+  const lifts = BIG_THREE.map(({ key, label }) => ({ key, label, best: null, at: null }));
+  for (const session of sessions) for (const exercise of session.exercises) {
+    const lift = lifts.find(item => item.key === bigThreeLift(exercise));
+    if (!lift) continue;
+    for (const set of validSets(exercise)) {
+      if (Date.parse(set.at) >= until) continue;
+      const value = estimateOneRepMax(set.weight, set.reps);
+      if (value && (lift.best == null || value > lift.best)) Object.assign(lift, { best: value, at: set.at });
+    }
+  }
+  const done = lifts.filter(lift => lift.best != null);
+  return { lifts, total: Math.round(done.reduce((n, lift) => n + lift.best, 0) * 10) / 10, count: done.length };
+}
+
 export function sparklinePoints(values, width, height, pad = 3) {
   const min = Math.min(...values);
   const max = Math.max(...values);

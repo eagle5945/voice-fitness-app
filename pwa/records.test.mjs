@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { estimateOneRepMax, findRecord, oneRepMaxTrends, sparklinePoints, referenceOneRepMax, intensityOf, recordSets } from './records.mjs';
+import { estimateOneRepMax, findRecord, oneRepMaxTrends, sparklinePoints, referenceOneRepMax, intensityOf, recordSets, bigThreeLift, bigThree } from './records.mjs';
 
 let serial = 0;
 const set = (weight, reps, extra = {}) => ({ id: `s${++serial}`, inputId: `i${serial}`, weight, reps, source: 'manual', at: '2026-09-30T10:00:00.000Z', updatedAt: null, canceledAt: null, ...extra });
@@ -108,4 +108,29 @@ test('recordSets lists the sets that were records when logged', () => {
   const records = recordSets(sessions);
   // Session 1 is the first for squat and the only bench session celebrates nothing; 100x5 beats 113.3, 105x5 beats 116.7.
   assert.deepEqual(records.map(r => [r.name, r.value, r.previous]), [['스쿼트', 116.7, 113.3], ['스쿼트', 122.5, 116.7]]);
+});
+
+test('only barbell back squat, bench press and deadlift count toward the big three', () => {
+  const lift = (name, kind = 'barbell') => bigThreeLift({ name, kind });
+  for (const [name, key] of [['스쿼트', 'squat'], ['바벨 스쿼트', 'squat'], ['백스쿼트', 'squat'], ['벤치프레스', 'bench'], ['바벨 벤치 프레스', 'bench'], ['벤치', 'bench'], ['데드리프트', 'deadlift'], ['컨벤셔널 데드리프트', 'deadlift'], ['스모 데드리프트', 'deadlift'], ['데드', 'deadlift']]) assert.equal(lift(name), key, name);
+  for (const name of ['프론트 스쿼트', '불가리안 스플릿 스쿼트', '핵스쿼트', '스미스 스쿼트', '인클라인 벤치프레스', '클로즈그립 벤치프레스', '루마니안 데드리프트', '스티프 데드리프트', '트랩바 데드리프트', '벤치 딥스']) assert.equal(lift(name), null, name);
+  assert.equal(lift('스쿼트', 'machine'), null);
+  assert.equal(lift('벤치프레스', 'dumbbell'), null);
+});
+
+test('big three sums the best estimate of each lift and can look back in time', () => {
+  const s = (at, name, weight, reps, canceled = false) => ({ id: at, startedAt: at, exercises: [{ name, kind: 'barbell', sets: [{ weight, reps, at, canceledAt: canceled ? at : null }] }] });
+  const sessions = [
+    s('2026-10-01T09:00:00Z', '바벨 스쿼트', 120, 5),
+    s('2026-09-30T09:00:00Z', '벤치프레스', 100, 1),
+    s('2026-09-29T09:00:00Z', '벤치프레스', 300, 1, true),
+    s('2026-09-01T09:00:00Z', '스쿼트', 100, 5),
+    s('2026-09-01T10:00:00Z', '프론트 스쿼트', 200, 5),
+  ];
+  const now = bigThree(sessions);
+  assert.deepEqual(now.lifts.map(lift => lift.best), [140, 100, null]);
+  assert.equal(now.total, 240);
+  assert.equal(now.count, 2);
+  const before = bigThree(sessions, { until: Date.parse('2026-09-15T00:00:00Z') });
+  assert.deepEqual([before.total, before.count], [116.7, 1]);
 });

@@ -4,7 +4,7 @@ import { previewDictation, confirmDictation, lastSetOf } from './dictation.mjs';
 import { exportWorkoutCsv } from './csv.mjs';
 import { workoutGuide, routineLastDone, nextRoutine, daysAgo } from './workout-guide.mjs';
 import { findPreviousExercise, suggestProgression } from './progression.mjs';
-import { findRecord, oneRepMaxTrends, sparklinePoints, referenceOneRepMax, intensityOf } from './records.mjs';
+import { findRecord, oneRepMaxTrends, sparklinePoints, referenceOneRepMax, intensityOf, bigThree } from './records.mjs';
 import { typicalRest, lastSetTime, restText } from './rest.mjs';
 import { platesFor, plateText } from './plates.mjs';
 import { icon } from './icons.mjs';
@@ -197,6 +197,17 @@ function partSection() {
       ${names.length ? `<details class="disclosure part-editor" ${partEditorOpen ? 'open' : ''}><summary><span>종목 분류${pending.length ? ` <span class="meta">${pending.length}개 미분류</span>` : ''}</span>${icon('chevron-down')}</summary><ul class="part-list disclosure-body">${ordered.map(item => `<li><label class="part-field"><span>${escapeHtml(item.name)}</span><select data-part-name="${escapeHtml(item.name)}"><option value="">자동 · ${item.guess ?? '분류 안 됨'}</option>${BODY_PARTS.map(part => `<option value="${part}" ${item.chosen && item.part === part ? 'selected' : ''}>${part}</option>`).join('')}</select></label></li>`).join('')}</ul></details>` : ''}
     </div></section>`;
 }
+function bigThreeSection() {
+  const current = bigThree(data.sessions);
+  if (!current.count) return '';
+  // Compared only when the same lifts were already recorded 30 days ago, so a newly added lift is not read as growth.
+  const earlier = bigThree(data.sessions, { until: Date.now() - 30 * 86_400_000 });
+  const change = earlier.count === current.count ? Math.round((current.total - earlier.total) * 10) / 10 : null;
+  const changeText = change ? `<p class="volume-change">${icon(change > 0 ? 'arrow-up' : 'arrow-down', { size: 18 })}<span>30일 전보다 ${kgText(Math.abs(change))} ${change > 0 ? '늘었음' : '줄었음'}</span></p>` : '';
+  return `<section class="section" aria-labelledby="big3-title"><div class="section-head"><h2 id="big3-title" class="section-title">3대 합계</h2>${infoToggle('3대 합계 계산 방법', '바벨 스쿼트, 벤치프레스, 데드리프트의 최고 추정 1RM을 더합니다. 프론트 스쿼트, 인클라인 벤치, 루마니안 데드리프트 같은 변형 종목과 덤벨·머신은 넣지 않습니다. 실제로 1회 든 무게가 아니라 세트 기록으로 계산한 추정값입니다.')}</div>
+    <div class="card"><div class="volume-headline"><p class="meta">추정 1RM 합계${current.count < 3 ? ` · ${current.count}종목` : ''}</p><p class="hero-title">${kgText(current.total)}</p>${changeText}</div>
+    <dl class="big3-grid">${current.lifts.map(lift => `<div><dt>${lift.label}</dt><dd>${lift.best != null ? kgText(lift.best) : '없음'}</dd><p class="meta">${lift.at ? shortDate(lift.at) : '기록 없음'}</p></div>`).join('')}</dl></div></section>`;
+}
 function volumeSection() {
   const { rows, thisWeek, change } = weeklyVolume(data.sessions);
   const max = Math.max(...rows.map(row => row.volume), 1);
@@ -251,7 +262,7 @@ function renderHome() {
   return `${pageHead(date, session ? '진행 중인 운동이 있습니다' : '오늘 운동')}
     <div class="layout-split"><div class="col-main stack">${primary}</div>
     <aside class="col-side stack" aria-label="최근 운동과 도움말"><section class="card"><div class="card-head"><h2 class="card-title">최근 운동</h2><button class="icon-button" data-view="history" aria-label="최근 운동 전체 보기">${icon('arrow-right')}</button></div>${recent.length ? `<ul class="list">${recent.map(recentItem).join('')}</ul>` : '<p class="meta">첫 운동을 기록하면 여기에 표시됩니다.</p>'}</section>
-    <details class="card disclosure"><summary><span>홈 화면에 추가하기</span>${icon('chevron-down')}</summary><div class="disclosure-body"><p class="meta">Safari 공유 메뉴에서 ‘홈 화면에 추가’를 선택하세요. 루틴과 기록은 이 기기에 저장되며, 기록 탭에서 JSON으로 백업할 수 있습니다.</p><p class="meta version-label">버전 20261002-35</p></div></details></aside></div>`;
+    <details class="card disclosure"><summary><span>홈 화면에 추가하기</span>${icon('chevron-down')}</summary><div class="disclosure-body"><p class="meta">Safari 공유 메뉴에서 ‘홈 화면에 추가’를 선택하세요. 루틴과 기록은 이 기기에 저장되며, 기록 탭에서 JSON으로 백업할 수 있습니다.</p><p class="meta version-label">버전 20261002-36</p></div></details></aside></div>`;
 }
 
 function renderSetup() {
@@ -319,6 +330,7 @@ function renderHistory() {
     <dl class="stat-cards"><div class="card stat"><dt>기록한 운동</dt><dd>${sessions.length}<span class="unit">회</span></dd></div><div class="card stat"><dt>누적 세트</dt><dd>${total}<span class="unit">세트</span></dd></div></dl>
     ${sessions.length ? `${reportSection()}${partSection()}${activitySection()}${volumeSection()}` : ''}
     <section class="section" aria-labelledby="sessions-title"><div class="section-head"><h2 id="sessions-title" class="section-title">운동 회차</h2></div>${sessions.length ? sessionTable(sessions) : `<div class="card empty-state"><span class="empty-icon">${icon('chart-column', { size: 28 })}</span><h3 class="card-title">아직 기록이 없습니다</h3><p class="meta">첫 운동을 기록하면 여기에 표시됩니다.</p><button class="button primary" data-view="home">${icon('dumbbell')} 운동하러 가기</button></div>`}</section>
+    ${bigThreeSection()}
     ${trends.length ? `<section class="section" aria-labelledby="records-title"><div class="section-head"><h2 id="records-title" class="section-title">종목별 추정 1RM</h2><div class="head-tools"><span class="meta">${trends.length}종목</span>${infoToggle('추정 1RM 계산 방법', '추정 1RM = 중량 × (1 + 횟수 ÷ 30). 같은 종목·장비끼리 비교합니다.')}</div></div>${recordTable(trends.slice(0, 6))}${trends.length > 6 ? `<details class="disclosure records-more"><summary><span>나머지 ${trends.length - 6}개 종목</span>${icon('chevron-down')}</summary>${recordTable(trends.slice(6))}</details>` : ''}</section>` : ''}
     <details class="card disclosure backup-panel" ${backupPanelOpen ? 'open' : ''}><summary><span>백업 · 복원 · 초기화</span>${icon('chevron-down')}</summary><div class="disclosure-body stack">${nasPanel()}<p class="meta">루틴과 기록은 이 기기에 저장됩니다. CSV는 조회용이고, JSON 백업으로 루틴까지 복원할 수 있습니다.</p><div class="button-wrap"><button class="button secondary" data-action="export-csv">${icon('download')} CSV 내려받기</button><button class="button secondary" data-action="export">${icon('download')} JSON 백업</button><button class="button secondary" data-action="import">${icon('upload')} JSON 복원</button></div><p class="meta">마지막 JSON 백업: ${data.lastBackupAt ? dateText(data.lastBackupAt) : '없음'}</p><div class="danger-zone"><div><p class="card-title">전체 운동 기록 삭제</p><p class="meta">운동 기록과 진행 중인 운동을 지웁니다. 저장된 루틴은 유지됩니다.</p></div><button class="button danger" data-action="clear-history" ${data.sessions.length ? '' : 'disabled'}>${icon('trash-2')} 전체 삭제</button></div></div></details>`;
 }
