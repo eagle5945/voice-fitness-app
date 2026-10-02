@@ -43,6 +43,7 @@ test('responses map to clear states', async () => {
   assert.equal((await sendBackup('{}', 't', { fetchImpl: async () => { throw new TypeError('offline'); } })).status, 'offline');
   assert.equal((await listBackups('t', { fetchImpl: reply(200, [{ id: 'a' }]) })).body[0].id, 'a');
   assert.equal((await sendBackup('{}', 't', { fetchImpl: reply(500, { error: 'x' }) })).status, 'error');
+  assert.equal((await sendBackup('{}', 't', { fetchImpl: reply(429, '<html>') })).status, 'busy');
 });
 
 test('fetchBackup encodes the id', async () => {

@@ -624,6 +624,14 @@ document.addEventListener('click', async event => {
       let result;
       try { result = await listBackups(token); } finally { button.disabled = false; }
       if (result.status !== 'ok') throw new Error(errorText(result));
+      // After a reinstall the device is empty: offer the NAS backups instead of trying to overwrite them.
+      const empty = !data.routines.length && !data.sessions.some(session => sessionSetCount(session));
+      if (empty && result.body.length) {
+        nasList = result.body;
+        await updateNas({ token, lastHash: null, lastError: null, declinedHash: null });
+        toast({ kind: 'info', text: 'NAS에 백업이 있습니다. 복원할 백업을 고르세요.' });
+        return;
+      }
       await updateNas({ token, lastHash: null, lastError: null, declinedHash: null });
       toast({ kind: 'info', text: 'NAS에 연결했습니다. 지금 백업합니다.' });
       await runNasBackup('manual');

@@ -28,6 +28,7 @@ async function call(fetchImpl, url, init) {
   if ([502, 503, 504].includes(response.status)) return { status: 'missing' };
   if (response.status === 409 && body?.reason === 'shrink') return { status: 'shrink', body };
   if (response.status === 422) return { status: 'invalid', body };
+  if (response.status === 429) return { status: 'busy' };
   if (response.status === 201) return { status: 'saved', body };
   if (response.ok) return { status: body?.unchanged ? 'unchanged' : 'ok', body };
   return { status: 'error', code: response.status };
@@ -45,6 +46,7 @@ export function errorText(result) {
   if (result.status === 'unauthorized') return '토큰이 맞지 않습니다.';
   if (result.status === 'offline') return 'NAS에 연결할 수 없습니다.';
   if (result.status === 'missing') return 'NAS 백업 서버가 꺼져 있습니다.';
+  if (result.status === 'busy') return '요청이 많아 잠시 뒤 다시 시도하세요.';
   if (result.status === 'notfound') return '백업을 찾지 못했습니다.';
   if (result.status === 'invalid') return result.body?.error ?? '백업 형식이 올바르지 않습니다.';
   return `NAS 백업에 실패했습니다(${result.code ?? '알 수 없음'}).`;
